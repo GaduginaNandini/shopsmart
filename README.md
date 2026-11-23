@@ -47,9 +47,6 @@ docker compose up --build           # http://localhost:8000
 The chatbot never invents policy. It answers only from `app/chatbot/policy.md` and order data; otherwise it
 escalates to a human. See `docs/ai-usage-log.md` and `docs/evidence/`.
 
-## Repo layout
-`app/` code · `tests/` pytest · `docs/` checklist, AI log, evidence templates · `.github/workflows/ci.yml`
-
 ## Results against success metrics (measured 2026-11-24)
 | Metric | Target | Result |
 |---|---|---|
