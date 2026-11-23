@@ -55,13 +55,13 @@
  },
  {
   "id": 10,
-  "q": "Where can I see what stage my order is at? order #1",
+  "q": "Where can I see what stage my order is at? order #1 x@example.com",
   "expect": "contains",
   "value": "SHIPPED"
  },
  {
   "id": 11,
-  "q": "Tell me about order 2",
+  "q": "Tell me about order 2 x@example.com",
   "expect": "contains",
   "value": "PAID"
  },

@@ -1,0 +1,49 @@
+@startuml
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class Product {
+  +id: int
+  +name: str
+  +price: Decimal
+  +stock: int
+}
+class Cart {
+  +id: int
+  +coupon: str
+}
+class CartItem {
+  +quantity: int
+}
+class Order {
+  +id: int
+  +email: str
+  +status: str
+  +total: Decimal
+}
+class OrderItem {
+  +quantity: int
+  +unit_price: Decimal
+}
+class PricingModule <<module>> {
+  +line_total()
+  +cart_total()
+}
+class ServicesModule <<module>> {
+  +add_item()
+  +checkout()
+  +mock_payment()
+}
+class ChatbotService <<module>> {
+  +answer()
+  +retrieve()
+  +numbers_grounded()
+}
+Cart "1" *-- "*" CartItem
+CartItem "*" --> "1" Product
+Order "1" *-- "*" OrderItem
+OrderItem "*" --> "1" Product
+ServicesModule ..> Cart
+ServicesModule ..> Order
+ServicesModule ..> PricingModule
+ChatbotService ..> Order : reads status
+@enduml

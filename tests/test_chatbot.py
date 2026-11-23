@@ -6,15 +6,26 @@ def no_llm(*_a, **_k):
     return None
 
 
-def test_order_status(app):
+def test_order_status_with_matching_email(app):
     db.session.add(Order(email="a@b.com", total="50.00", status="SHIPPED"))
     db.session.commit()
-    r = service.answer("Where is my order #1?", llm=no_llm)
+    r = service.answer("Where is my order #1? a@b.com", llm=no_llm)
     assert "SHIPPED" in r["answer"] and r["source"] == "orders"
 
 
-def test_unknown_order(app):
-    assert "couldn't find" in service.answer("status of order 999", llm=no_llm)["answer"]
+def test_order_status_hidden_without_or_with_wrong_email(app):
+    db.session.add(Order(email="a@b.com", total="50.00", status="SHIPPED"))
+    db.session.commit()
+    for q in ("Where is my order #1?", "order #1 evil@x.com"):
+        r = service.answer(q, llm=no_llm)
+        assert "SHIPPED" not in r["answer"] and "couldn't find" in r["answer"]
+
+
+def test_unknown_order_same_reply_as_wrong_email(app):
+    unknown = service.answer("status of order 999 a@b.com", llm=no_llm)["answer"]
+    db.session.add(Order(email="a@b.com", total="50.00", status="PAID"))
+    db.session.commit()
+    assert service.answer("order #1 wrong@b.com", llm=no_llm)["answer"] == unknown
 
 
 def test_policy_answer_is_grounded(app):

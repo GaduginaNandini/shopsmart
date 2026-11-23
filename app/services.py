@@ -53,7 +53,7 @@ def total_for(cart):
 
 def mock_payment(card_token):
     """Mock gateway: token 'tok_fail' is declined, everything else approved."""
-    return card_token != "tok_fail"  # nosec B105 - mock decline token, not a credential
+    return card_token != "tok_fail"  # nosec B105
 
 
 def checkout(cart, email, card_token):

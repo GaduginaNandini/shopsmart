@@ -9,7 +9,9 @@ def test_full_checkout_flow(client):
     assert r.status_code == 201
     assert r.get_json()["total"] == "100.00"
     oid = r.get_json()["order_id"]
-    assert client.get(f"/api/orders/{oid}").get_json()["status"] == "PAID"
+    assert client.get(f"/api/orders/{oid}?email=a@b.com").get_json()["status"] == "PAID"
+    assert client.get(f"/api/orders/{oid}").status_code == 404
+    assert client.get(f"/api/orders/{oid}?email=other@b.com").status_code == 404
     stock = {p["id"]: p["stock"] for p in client.get("/api/products").get_json()}
     assert stock[1] == 98
 

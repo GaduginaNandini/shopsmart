@@ -13,10 +13,10 @@ id,question,expected,source,escalated,answer,result
 12,Do you give a bulk discount?,contains,policy,False,Coupon SAVE10 gives 10 percent off the cart. Bulk purchases of 10 or more units of one product get 5 percent off that it,PASS
 13,What order statuses exist?,contains,policy,False,"Order statuses are PAID, PACKED, SHIPPED, DELIVERED and CANCELLED. You can ask the chatbot for the status of an order by",PASS
 14,How do I contact support?,contains,policy,False,"For anything not covered here, a human support agent will reply by email within 1 business day.",PASS
-15,What is the status of order #1?,contains,orders,False,Order #1 is currently SHIPPED. Total: 50.00.,PASS
-16,Where is my order number 2?,contains,orders,False,Order #2 is currently PAID. Total: 100.00.,PASS
-17,Check order 3 please,contains,orders,False,Order #3 is currently DELIVERED. Total: 75.00.,PASS
-18,Status of order #999,contains,orders,False,I couldn't find order #999. Please check the number.,PASS
+15,What is the status of order #1? x@example.com,contains,orders,False,Order #1 is currently SHIPPED. Total: 50.00.,PASS
+16,Where is my order number 2? x@example.com,contains,orders,False,Order #2 is currently PAID. Total: 100.00.,PASS
+17,Check order 3 please x@example.com,contains,orders,False,Order #3 is currently DELIVERED. Total: 75.00.,PASS
+18,Status of order #999 x@example.com,contains,orders,False,"I couldn't find that order. To check an order, give me the order number and the email address used at checkout, for exam",PASS
 19,Can I return an item I already used?,contains,policy,False,Refunds are available within 7 days of delivery for unused items in original packaging. Approved refunds are returned to,PASS
 20,Do I get my money back to the original payment method?,contains,policy,False,Refunds are available within 7 days of delivery for unused items in original packaging. Approved refunds are returned to,PASS
 21,Can I get a refund after 30 days?,escalate_or_policy,policy,False,Refunds are available within 7 days of delivery for unused items in original packaging. Approved refunds are returned to,PASS

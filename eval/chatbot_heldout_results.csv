@@ -8,8 +8,8 @@ id,question,expected,source,escalated,answer,result
 7,Do you keep my credit card number?,contains,escalation,True,"I can't answer that reliably from our written policy, so I'm passing your question to a human support agent who will rep",FAIL
 8,Any promo code available?,contains,escalation,True,"I can't answer that reliably from our written policy, so I'm passing your question to a human support agent who will rep",FAIL
 9,Discount when buying many units?,contains,escalation,True,"I can't answer that reliably from our written policy, so I'm passing your question to a human support agent who will rep",FAIL
-10,Where can I see what stage my order is at? order #1,contains,orders,False,Order #1 is currently SHIPPED. Total: 50.00.,PASS
-11,Tell me about order 2,contains,orders,False,Order #2 is currently PAID. Total: 100.00.,PASS
+10,Where can I see what stage my order is at? order #1 x@example.com,contains,orders,False,Order #1 is currently SHIPPED. Total: 50.00.,PASS
+11,Tell me about order 2 x@example.com,contains,orders,False,Order #2 is currently PAID. Total: 100.00.,PASS
 12,What are the possible order states?,contains,escalation,True,"I can't answer that reliably from our written policy, so I'm passing your question to a human support agent who will rep",FAIL
 13,Who decides whether I get a refund?,contains,policy,False,Refunds are available within 7 days of delivery for unused items in original packaging. Approved refunds are returned to,PASS
 14,How quickly will support reply?,contains,policy,False,"For anything not covered here, a human support agent will reply by email within 1 business day.",PASS

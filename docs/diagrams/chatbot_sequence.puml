@@ -1,0 +1,24 @@
+@startuml
+skinparam shadowing false
+actor Customer
+participant "Chatbot" as B
+database "Orders DB" as DB
+participant "policy.md" as P
+participant "LLM" as L
+actor "Support Agent" as A
+Customer -> B: question
+alt contains order number
+  B -> DB: lookup order
+  B --> Customer: status
+else policy question
+  B -> P: load written policy
+  B -> L: policy + question (answer ONLY from policy)
+  L --> B: answer or ESCALATE
+  alt ESCALATE or number not in policy
+    B --> Customer: handing over to human agent
+    B -> A: escalate
+  else grounded
+    B --> Customer: answer
+  end
+end
+@enduml

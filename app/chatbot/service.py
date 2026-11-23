@@ -117,10 +117,23 @@ def _escalate():
     return _reply(ESCALATION, "escalation", True)
 
 
-def _order_answer(order_id):
+ORDER_NOT_FOUND = (
+    "I couldn't find that order. To check an order, give me the order number and the email "
+    "address used at checkout, for example: order #12 me@example.com"
+)
+
+
+def find_email(question):
+    """Extract an email address from the question, lower-cased."""
+    match = re.search(r"[\w.+-]+@[\w-]+\.[\w.-]+", question)
+    return match.group(0).lower() if match else None
+
+
+def _order_answer(order_id, email):
+    """Privacy: only reveal an order when the email matches; same reply for unknown order and wrong email."""
     order = db.session.get(Order, order_id)
-    if order is None:
-        return _reply(f"I couldn't find order #{order_id}. Please check the number.", "orders")
+    if order is None or email is None or order.email.lower() != email:
+        return _reply(ORDER_NOT_FOUND, "orders")
     return _reply(f"Order #{order.id} is currently {order.status}. Total: {order.total}.", "orders")
 
 
@@ -158,5 +171,5 @@ def answer(question, llm=call_llm):
         return _reply("Please type a question.", "none")
     order_id = find_order_id(question)
     if order_id is not None:
-        return _order_answer(order_id)
+        return _order_answer(order_id, find_email(question))
     return _llm_answer(question, llm) or _offline_answer(question)

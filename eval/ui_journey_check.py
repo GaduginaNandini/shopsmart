@@ -46,7 +46,7 @@ with sync_playwright() as p:
     pg.fill("#chat-input", "Do you sell gift cards?"); pg.click("#chat-send")
     pg.wait_for_function("document.getElementById('chat-log').textContent.includes('human support agent')")
     check("chatbot escalates unknown", "human support agent" in pg.inner_text("#chat-log"))
-    pg.fill("#chat-input", "What is the status of order #1?"); pg.click("#chat-send")
+    pg.fill("#chat-input", "What is the status of order #1? student@example.com"); pg.click("#chat-send")
     pg.wait_for_function("document.getElementById('chat-log').textContent.includes('Order #1')")
     check("chatbot order status from real order", "PAID" in pg.inner_text("#chat-log"))
     pg.screenshot(path=f"{SHOTS}/04_chatbot.png")

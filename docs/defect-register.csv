@@ -8,3 +8,5 @@ DEF-06,2026-11-24,app/chatbot/service.py,held-out eval,4,high,Held-out paraphras
 DEF-07,2026-11-24,app/__init__.py,load test,4,high,/metrics under 2 gunicorn workers reported about half the real requests,fixed
 DEF-08,2026-11-24,app/__init__.py,code review,4,medium,Metrics counters not thread-safe (+= on shared dict),fixed
 DEF-09,2026-11-24,app/services.py,code review,5,high,Checkout could oversell stock under concurrent orders (no row lock),fixed (effective on PostgreSQL)
+DEF-10,2026-11-24,app/chatbot/service.py,AI code review,5,high,Chatbot revealed status and total of any order to anyone who guessed an order number (privacy leak),fixed (email must match; same reply for unknown/wrong email)
+DEF-11,2026-11-24,app/routes.py,AI code review,5,high,Order API and product-creation endpoint had no access check,fixed (email on order lookup; X-Owner-Token on owner actions)

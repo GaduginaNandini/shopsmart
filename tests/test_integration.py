@@ -10,13 +10,13 @@ def _buy(client, qty=1, token="tok_ok", pid=1):
 
 def test_order_created_then_chatbot_reports_status(client):
     oid = _buy(client).get_json()["order_id"]
-    r = client.post("/api/chat", json={"message": f"What is the status of order #{oid}?"}).get_json()
+    r = client.post("/api/chat", json={"message": f"What is the status of order #{oid}? u@example.com"}).get_json()
     assert "PAID" in r["answer"] and r["source"] == "orders"
 
 
 def test_failed_payment_creates_no_order(client):
     assert _buy(client, token="tok_fail").status_code == 400
-    r = client.post("/api/chat", json={"message": "status of order 1"}).get_json()
+    r = client.post("/api/chat", json={"message": "status of order 1 u@example.com"}).get_json()
     assert "couldn't find" in r["answer"]
 
 

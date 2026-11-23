@@ -1,4 +1,7 @@
 """HTTP routes: catalogue, cart, checkout, orders."""
+import hmac
+import os
+
 from flask import Blueprint, jsonify, render_template, request
 
 from . import services
@@ -26,9 +29,17 @@ def list_products():
     return jsonify([p.to_dict() for p in Product.query.order_by(Product.id).all()])
 
 
+def _owner_ok():
+    """Owner actions need the X-Owner-Token header (env OWNER_TOKEN; dev default shown in README)."""
+    expected = os.getenv("OWNER_TOKEN", "owner-dev-token")
+    return hmac.compare_digest(request.headers.get("X-Owner-Token", ""), expected)
+
+
 @bp.post("/api/products")
 def create_product():
     """Create product."""
+    if not _owner_ok():
+        return jsonify(error="owner token required"), 403
     data = request.get_json(force=True)
     if not data.get("name") or float(data.get("price", -1)) < 0:
         return jsonify(error="name and non-negative price required"), 400
@@ -110,7 +121,8 @@ def do_checkout(cart_id):
 def get_order(order_id):
     """Get order."""
     order = db.session.get(Order, order_id)
-    if order is None:
+    email = request.args.get("email", "").lower()
+    if order is None or order.email.lower() != email:  # same 404 for unknown order and wrong email
         return jsonify(error="order not found"), 404
     return jsonify(order_id=order.id, status=order.status, total=str(order.total))
 

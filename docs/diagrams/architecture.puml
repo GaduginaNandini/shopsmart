@@ -1,0 +1,25 @@
+@startuml
+!pragma layout smetana
+skinparam shadowing false
+actor User
+component "Browser\n(HTML/JS)" as UI
+package "Flask app (container)" {
+  component "Catalogue / Cart / Order\nmodules" as Shop
+  component "Chatbot service" as Bot
+  component "/health /metrics" as Mon
+}
+database "PostgreSQL" as DB
+component "policy.md\n(written policy)" as Policy
+cloud "LLM API\n(Gemini)" as LLM
+component "Mock payment" as Pay
+component "Prometheus + Grafana" as Prom
+User --> UI
+UI --> Shop : REST
+UI --> Bot : /api/chat
+Shop --> DB
+Shop --> Pay
+Bot --> DB : order status
+Bot --> Policy
+Bot --> LLM : full policy + question
+Prom --> Mon : scrape
+@enduml
