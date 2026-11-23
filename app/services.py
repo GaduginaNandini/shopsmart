@@ -1,14 +1,15 @@
 """Cart and checkout services. Payment is mocked."""
-from . import METRICS
+from . import bump
 from .models import Cart, CartItem, Order, OrderItem, Product, db
 from .pricing import cart_total
 
 
 class CheckoutError(Exception):
-    pass
+    """Raised for any business-rule failure during cart or checkout."""
 
 
 def get_or_create_cart(cart_id=None):
+    """Load a cart by id or create a new one."""
     cart = db.session.get(Cart, cart_id) if cart_id else None
     if cart is None:
         cart = Cart()
@@ -18,6 +19,7 @@ def get_or_create_cart(cart_id=None):
 
 
 def add_item(cart, product_id, quantity=1):
+    """Add item."""
     if quantity < 1:
         raise CheckoutError("quantity must be at least 1")
     product = db.session.get(Product, product_id)
@@ -36,6 +38,7 @@ def add_item(cart, product_id, quantity=1):
 
 
 def remove_item(cart, product_id):
+    """Remove item."""
     for item in list(cart.items):
         if item.product_id == product_id:
             cart.items.remove(item)
@@ -44,26 +47,30 @@ def remove_item(cart, product_id):
 
 
 def total_for(cart):
+    """Total for."""
     return cart_total([(i.product.price, i.quantity) for i in cart.items], cart.coupon)
 
 
 def mock_payment(card_token):
     """Mock gateway: token 'tok_fail' is declined, everything else approved."""
-    return card_token != "tok_fail"
+    return card_token != "tok_fail"  # nosec B105 - mock decline token, not a credential
 
 
 def checkout(cart, email, card_token):
+    """Checkout."""
     if not cart.items:
         raise CheckoutError("cart is empty")
     if not email or "@" not in email:
         raise CheckoutError("valid email required")
-    for item in cart.items:
+    for item in cart.items:  # lock rows so concurrent checkouts cannot oversell
+        db.session.get(Product, item.product_id, with_for_update=True)
+        db.session.refresh(item.product)
         if item.quantity > item.product.stock:
-            METRICS["orders_failed"] += 1
+            bump("orders_failed")
             raise CheckoutError(f"insufficient stock for {item.product.name}")
     total = total_for(cart)
     if not mock_payment(card_token):
-        METRICS["orders_failed"] += 1
+        bump("orders_failed")
         raise CheckoutError("payment declined")
     order = Order(email=email, total=total, status="PAID")
     for item in cart.items:
@@ -76,5 +83,5 @@ def checkout(cart, email, card_token):
         cart.items.remove(item)
     cart.coupon = None
     db.session.commit()
-    METRICS["orders_ok"] += 1
+    bump("orders_ok")
     return order

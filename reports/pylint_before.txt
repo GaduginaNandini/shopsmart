@@ -1,0 +1,25 @@
+app/models.py:29:0: C0115: Missing class docstring (missing-class-docstring)
+app/models.py:29:0: R0903: Too few public methods (0/2) (too-few-public-methods)
+app/models.py:37:0: C0115: Missing class docstring (missing-class-docstring)
+app/models.py:37:0: R0903: Too few public methods (0/2) (too-few-public-methods)
+app/models.py:46:0: C0115: Missing class docstring (missing-class-docstring)
+app/models.py:46:0: R0903: Too few public methods (0/2) (too-few-public-methods)
+************* Module app.chatbot.service
+app/chatbot/service.py:16:0: C0301: Line too long (102/100) (line-too-long)
+app/chatbot/service.py:17:0: C0301: Line too long (149/100) (line-too-long)
+app/chatbot/service.py:43:0: C0301: Line too long (123/100) (line-too-long)
+app/chatbot/service.py:88:0: C0301: Line too long (111/100) (line-too-long)
+app/chatbot/service.py:130:0: C0301: Line too long (109/100) (line-too-long)
+app/chatbot/service.py:31:0: C0116: Missing function or method docstring (missing-function-docstring)
+app/chatbot/service.py:64:0: C0116: Missing function or method docstring (missing-function-docstring)
+app/chatbot/service.py:76:0: C0116: Missing function or method docstring (missing-function-docstring)
+app/chatbot/service.py:93:11: W0718: Catching too general exception Exception (broad-exception-caught)
+app/chatbot/service.py:103:0: R0911: Too many return statements (7/6) (too-many-return-statements)
+************* Module app.chatbot.routes
+app/chatbot/routes.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+app/chatbot/routes.py:9:0: C0116: Missing function or method docstring (missing-function-docstring)
+app/chatbot/routes.py:1:0: R0401: Cyclic import (app -> app.routes -> app.services) (cyclic-import)
+
+-----------------------------------
+Your code has been rated at 8.49/10
+

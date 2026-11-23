@@ -1,0 +1,25 @@
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html
+   Location: app/services.py:52:25
+51	    """Mock gateway: token 'tok_fail' is declined, everything else approved."""
+52	    return card_token != "tok_fail"
+53	
+
+--------------------------------------------------
+
+Code scanned:
+	Total lines of code: 385
+	Total lines skipped (#nosec): 0
+	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
+
+Run metrics:
+	Total issues (by severity):
+		Undefined: 0
+		Low: 1
+		Medium: 0
+		High: 0
+	Total issues (by confidence):
+		Undefined: 0
+		Low: 0
+		Medium: 1
+		High: 0
+Files skipped (0):

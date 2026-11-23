@@ -1,5 +1,5 @@
 """HTTP routes: catalogue, cart, checkout, orders."""
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, render_template, request
 
 from . import services
 from .models import Order, Product, db
@@ -22,11 +22,13 @@ def _cart_json(cart):
 
 @bp.get("/api/products")
 def list_products():
+    """List products."""
     return jsonify([p.to_dict() for p in Product.query.order_by(Product.id).all()])
 
 
 @bp.post("/api/products")
 def create_product():
+    """Create product."""
     data = request.get_json(force=True)
     if not data.get("name") or float(data.get("price", -1)) < 0:
         return jsonify(error="name and non-negative price required"), 400
@@ -38,11 +40,13 @@ def create_product():
 
 @bp.post("/api/cart")
 def new_cart():
+    """New cart."""
     return jsonify(_cart_json(services.get_or_create_cart())), 201
 
 
 @bp.get("/api/cart/<int:cart_id>")
 def get_cart(cart_id):
+    """Get cart."""
     cart = db.session.get(services.Cart, cart_id)
     if cart is None:
         return jsonify(error="cart not found"), 404
@@ -51,6 +55,7 @@ def get_cart(cart_id):
 
 @bp.post("/api/cart/<int:cart_id>/items")
 def add_to_cart(cart_id):
+    """Add to cart."""
     cart = db.session.get(services.Cart, cart_id)
     if cart is None:
         return jsonify(error="cart not found"), 404
@@ -64,6 +69,7 @@ def add_to_cart(cart_id):
 
 @bp.delete("/api/cart/<int:cart_id>/items/<int:product_id>")
 def remove_from_cart(cart_id, product_id):
+    """Remove from cart."""
     cart = db.session.get(services.Cart, cart_id)
     if cart is None:
         return jsonify(error="cart not found"), 404
@@ -73,6 +79,7 @@ def remove_from_cart(cart_id, product_id):
 
 @bp.post("/api/cart/<int:cart_id>/coupon")
 def apply_coupon(cart_id):
+    """Apply coupon."""
     cart = db.session.get(services.Cart, cart_id)
     if cart is None:
         return jsonify(error="cart not found"), 404
@@ -87,6 +94,7 @@ def apply_coupon(cart_id):
 
 @bp.post("/api/cart/<int:cart_id>/checkout")
 def do_checkout(cart_id):
+    """Do checkout."""
     cart = db.session.get(services.Cart, cart_id)
     if cart is None:
         return jsonify(error="cart not found"), 404
@@ -100,6 +108,7 @@ def do_checkout(cart_id):
 
 @bp.get("/api/orders/<int:order_id>")
 def get_order(order_id):
+    """Get order."""
     order = db.session.get(Order, order_id)
     if order is None:
         return jsonify(error="order not found"), 404
@@ -108,27 +117,5 @@ def get_order(order_id):
 
 @bp.get("/")
 def index():
-    return INDEX_HTML
-
-
-INDEX_HTML = """<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>ShopSmart</title></head>
-<body>
-<h1>ShopSmart</h1>
-<ul id="products"></ul>
-<h2>Support chat</h2>
-<input id="msg" placeholder="Ask about an order or policy">
-<button id="send">Send</button>
-<p id="reply"></p>
-<script>
-fetch('/api/products').then(r => r.json()).then(ps => {
-  const ul = document.getElementById('products');
-  ps.forEach(p => { const li = document.createElement('li'); li.textContent = p.name + ' - ' + p.price; ul.appendChild(li); });
-});
-document.getElementById('send').onclick = () => {
-  fetch('/api/chat', {method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({message: document.getElementById('msg').value})})
-    .then(r => r.json()).then(d => { document.getElementById('reply').textContent = d.answer; });
-};
-</script>
-</body></html>"""
+    """Index."""
+    return render_template("index.html")

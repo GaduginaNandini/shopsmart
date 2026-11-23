@@ -54,3 +54,23 @@ def test_empty_message_and_endpoint(client):
 def test_call_llm_without_key(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     assert service.call_llm("s", "c", "q") is None
+
+
+def test_llm_invented_number_escalates(app):
+    # LLM claims a 30-day refund window; policy says 7 -> guardrail must escalate
+    r = service.answer("What is your refund policy?", llm=lambda *a: "Refunds are allowed within 30 days.")
+    assert r["escalated"] and r["source"] == "escalation"
+
+
+def test_llm_grounded_number_passes(app):
+    r = service.answer("What is your refund policy?", llm=lambda *a: "Refunds within 7 days of delivery.")
+    assert not r["escalated"]
+
+
+def test_llm_receives_full_policy(app):
+    seen = {}
+    def fake(system, ctx, q):
+        seen["ctx"] = ctx
+        return "ok"
+    service.answer("anything about shipping?", llm=fake)
+    assert "Refund policy" in seen["ctx"] and "Shipping" in seen["ctx"]

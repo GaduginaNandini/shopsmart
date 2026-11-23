@@ -6,4 +6,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY wsgi.py .
 EXPOSE 8000
-CMD ["gunicorn", "-b", "0.0.0.0:8000", "wsgi:app"]
+# One process (threads for concurrency): /metrics counters are in-process, so >1 worker would split them.
+CMD ["gunicorn", "--workers", "1", "--threads", "8", "-b", "0.0.0.0:8000", "wsgi:app"]

@@ -14,10 +14,12 @@ CENT = Decimal("0.01")
 
 
 def money(value):
+    """Round a value to 2 decimals, half-up."""
     return Decimal(value).quantize(CENT, rounding=ROUND_HALF_UP)
 
 
 def line_total(unit_price, quantity):
+    """Price of one cart line; 5% bulk discount from 10 units (rule R1)."""
     if quantity < 0:
         raise ValueError("quantity must be >= 0")
     total = Decimal(unit_price) * quantity

@@ -1,0 +1,53 @@
+app/__init__.py
+    F 12:0 create_app - A (5)
+app/pricing.py
+    F 31:0 cart_total - A (4)
+    F 21:0 line_total - A (3)
+    F 16:0 money - A (1)
+app/services.py
+    F 59:0 checkout - B (9)
+    F 21:0 add_item - B (8)
+    F 11:0 get_or_create_cart - A (3)
+    F 40:0 remove_item - A (3)
+    F 49:0 total_for - A (2)
+    F 54:0 mock_payment - A (1)
+    C 7:0 CheckoutError - A (1)
+app/routes.py
+    F 30:0 create_product - A (3)
+    F 57:0 add_to_cart - A (3)
+    F 81:0 apply_coupon - A (3)
+    F 96:0 do_checkout - A (3)
+    F 10:0 _cart_json - A (2)
+    F 24:0 list_products - A (2)
+    F 48:0 get_cart - A (2)
+    F 71:0 remove_from_cart - A (2)
+    F 110:0 get_order - A (2)
+    F 42:0 new_cart - A (1)
+    F 119:0 index - A (1)
+app/models.py
+    C 13:0 Product - A (2)
+    F 9:0 _now - A (1)
+    M 20:4 Product.to_dict - A (1)
+    C 25:0 Cart - A (1)
+    C 32:0 CartItem - A (1)
+    C 41:0 Order - A (1)
+    C 51:0 OrderItem - A (1)
+app/chatbot/service.py
+    F 53:0 _stem - B (6)
+    F 138:0 _offline_answer - B (6)
+    F 127:0 _llm_answer - A (5)
+    F 154:0 answer - A (5)
+    F 65:0 _tokens - A (4)
+    F 70:0 retrieve - A (4)
+    F 41:0 load_sections - A (3)
+    F 89:0 call_llm - A (3)
+    F 83:0 find_order_id - A (2)
+    F 106:0 numbers_grounded - A (2)
+    F 120:0 _order_answer - A (2)
+    F 112:0 _reply - A (1)
+    F 116:0 _escalate - A (1)
+app/chatbot/routes.py
+    F 10:0 chat - A (2)
+
+43 blocks (classes, functions, methods) analyzed.
+Average complexity: A (2.744186046511628)

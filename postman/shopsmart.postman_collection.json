@@ -1,0 +1,153 @@
+{
+ "info": {
+  "name": "ShopSmart",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+ },
+ "variable": [
+  {
+   "key": "base",
+   "value": "http://localhost:8000"
+  }
+ ],
+ "item": [
+  {
+   "name": "Health",
+   "request": {
+    "method": "GET",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     }
+    ],
+    "url": {
+     "raw": "{{base}}/health",
+     "host": [
+      "{{base}}"
+     ],
+     "path": [
+      "health"
+     ]
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200',()=>pm.response.to.have.status(200));"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "List products",
+   "request": {
+    "method": "GET",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     }
+    ],
+    "url": {
+     "raw": "{{base}}/api/products",
+     "host": [
+      "{{base}}"
+     ],
+     "path": [
+      "api",
+      "products"
+     ]
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('has products',()=>pm.expect(pm.response.json().length).to.be.above(0));"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "Chat shipping",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     }
+    ],
+    "url": {
+     "raw": "{{base}}/api/chat",
+     "host": [
+      "{{base}}"
+     ],
+     "path": [
+      "api",
+      "chat"
+     ]
+    },
+    "body": {
+     "mode": "raw",
+     "raw": "{\"message\": \"How long does shipping take?\"}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('answer',()=>pm.expect(pm.response.json().answer).to.include('business days'));"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "Chat escalates",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     }
+    ],
+    "url": {
+     "raw": "{{base}}/api/chat",
+     "host": [
+      "{{base}}"
+     ],
+     "path": [
+      "api",
+      "chat"
+     ]
+    },
+    "body": {
+     "mode": "raw",
+     "raw": "{\"message\": \"Do you sell gift cards?\"}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('escalated',()=>pm.expect(pm.response.json().escalated).to.eql(true));"
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

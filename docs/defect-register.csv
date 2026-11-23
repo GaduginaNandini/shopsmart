@@ -1,0 +1,10 @@
+id,date,module,found_by,phase,severity,description,status
+DEF-01,2026-11-23,app/routes.py,manual review,setup,low,Index route used send_static_file with no static folder,fixed
+DEF-02,2026-11-23,app/__init__.py,integration test,4,medium,Metrics counters were module globals shared across app instances,fixed
+DEF-03,2026-11-23,app/chatbot/service.py,chatbot eval,4,high,Keyword retrieval without stemming/synonyms: 7 of 30 questions failed (77%),fixed
+DEF-04,2026-11-23,app/chatbot/service.py,chatbot eval,4,medium,"Stemmer turned 'status' into 'statu' so 'statuses' never matched",fixed
+DEF-05,2026-11-24,app/chatbot/service.py,chatbot eval,4,medium,Refactor changed sensitive-topic logic and broke question 20,fixed
+DEF-06,2026-11-24,app/chatbot/service.py,held-out eval,4,high,Held-out paraphrase questions only 50% correct offline (mostly safe escalations; 1 wrong answer),open (LLM mode expected to fix; needs API key to measure)
+DEF-07,2026-11-24,app/__init__.py,load test,4,high,/metrics under 2 gunicorn workers reported about half the real requests,fixed
+DEF-08,2026-11-24,app/__init__.py,code review,4,medium,Metrics counters not thread-safe (+= on shared dict),fixed
+DEF-09,2026-11-24,app/services.py,code review,5,high,Checkout could oversell stock under concurrent orders (no row lock),fixed (effective on PostgreSQL)

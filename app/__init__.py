@@ -1,21 +1,32 @@
 """ShopSmart application factory."""
 import os
+import threading
 import time
 
 from flask import Flask, g, jsonify, request
 
 from .models import db
 
+_LOCK = threading.Lock()
 METRICS = {"requests": 0, "errors": 0, "orders_ok": 0, "orders_failed": 0, "latency_sum": 0.0}
 
 
+def bump(key, amount=1):
+    """Thread-safe counter increment."""
+    with _LOCK:
+        METRICS[key] += amount
+
+
 def create_app(config=None):
+    """Create app."""
     app = Flask(__name__)
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///shopsmart.db")
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     if config:
         app.config.update(config)
 
+    for k in METRICS:  # fresh counters per app instance
+        METRICS[k] = 0
     db.init_app(app)
 
     from .routes import bp
@@ -30,10 +41,10 @@ def create_app(config=None):
 
     @app.after_request
     def _record(resp):
-        METRICS["requests"] += 1
-        METRICS["latency_sum"] += time.perf_counter() - getattr(g, "t0", time.perf_counter())
+        bump("requests")
+        bump("latency_sum", time.perf_counter() - getattr(g, "t0", time.perf_counter()))
         if resp.status_code >= 500:
-            METRICS["errors"] += 1
+            bump("errors")
         return resp
 
     @app.get("/health")
@@ -54,4 +65,13 @@ def create_app(config=None):
 
     with app.app_context():
         db.create_all()
+        from .models import Product
+        if not app.config.get("TESTING") and Product.query.count() == 0:
+            db.session.add_all([
+                Product(name="Notebook", price="50.00", stock=100),
+                Product(name="Pen Set", price="120.00", stock=40),
+                Product(name="Desk Lamp", price="799.00", stock=15),
+                Product(name="Backpack", price="1499.00", stock=8),
+            ])
+            db.session.commit()
     return app

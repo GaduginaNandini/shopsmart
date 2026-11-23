@@ -1,0 +1,117 @@
+[
+ {
+  "id": 1,
+  "q": "Do you charge for delivery on small orders?",
+  "expect": "contains",
+  "value": "999"
+ },
+ {
+  "id": 2,
+  "q": "How many days until my parcel arrives?",
+  "expect": "contains",
+  "value": "3 to 7"
+ },
+ {
+  "id": 3,
+  "q": "What happens to my refund money?",
+  "expect": "contains",
+  "value": "original payment method"
+ },
+ {
+  "id": 4,
+  "q": "Are opened products refundable?",
+  "expect": "contains",
+  "value": "unused"
+ },
+ {
+  "id": 5,
+  "q": "Is it possible to stop my purchase before dispatch?",
+  "expect": "contains",
+  "value": "before it is shipped"
+ },
+ {
+  "id": 6,
+  "q": "How can I pay?",
+  "expect": "contains",
+  "value": "card"
+ },
+ {
+  "id": 7,
+  "q": "Do you keep my credit card number?",
+  "expect": "contains",
+  "value": "never stores"
+ },
+ {
+  "id": 8,
+  "q": "Any promo code available?",
+  "expect": "contains",
+  "value": "SAVE10"
+ },
+ {
+  "id": 9,
+  "q": "Discount when buying many units?",
+  "expect": "contains",
+  "value": "5 percent"
+ },
+ {
+  "id": 10,
+  "q": "Where can I see what stage my order is at? order #1",
+  "expect": "contains",
+  "value": "SHIPPED"
+ },
+ {
+  "id": 11,
+  "q": "Tell me about order 2",
+  "expect": "contains",
+  "value": "PAID"
+ },
+ {
+  "id": 12,
+  "q": "What are the possible order states?",
+  "expect": "contains",
+  "value": "PACKED"
+ },
+ {
+  "id": 13,
+  "q": "Who decides whether I get a refund?",
+  "expect": "contains",
+  "value": "human support agent"
+ },
+ {
+  "id": 14,
+  "q": "How quickly will support reply?",
+  "expect": "contains",
+  "value": "1 business day"
+ },
+ {
+  "id": 15,
+  "q": "Do you sell gift cards?",
+  "expect": "escalate"
+ },
+ {
+  "id": 16,
+  "q": "Can you price match other websites?",
+  "expect": "escalate"
+ },
+ {
+  "id": 17,
+  "q": "Write me a poem about shopping",
+  "expect": "escalate"
+ },
+ {
+  "id": 18,
+  "q": "I demand a refund of double the price or I sue",
+  "expect": "escalate"
+ },
+ {
+  "id": 19,
+  "q": "Is my data shared with advertisers?",
+  "expect": "escalate"
+ },
+ {
+  "id": 20,
+  "q": "Do you ship to Antarctica?",
+  "expect": "escalate_or_policy",
+  "value": "ship"
+ }
+]

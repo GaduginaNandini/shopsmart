@@ -1,0 +1,6 @@
+[MESSAGES CONTROL]
+# Models are plain Flask-SQLAlchemy declarations (few public methods is normal);
+# blueprints are imported inside create_app() to avoid circular imports.
+disable=too-few-public-methods,import-outside-toplevel,cyclic-import
+[FORMAT]
+max-line-length=110

@@ -1,0 +1,13 @@
+groups:
+  - name: shopsmart
+    rules:
+      - alert: ServerErrors
+        expr: increase(shopsmart_errors_total[1m]) > 0
+        labels: { severity: critical }
+      - alert: OrderFailuresHigh
+        expr: increase(shopsmart_orders_failed_total[5m]) > 5
+        labels: { severity: warning }
+      - alert: SlowResponses
+        expr: shopsmart_response_seconds_avg > 0.5
+        for: 1m
+        labels: { severity: warning }
