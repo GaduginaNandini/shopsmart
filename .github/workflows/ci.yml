@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Lint
+        run: pylint app --fail-under=8.0
+      - name: Security scan
+        run: bandit -r app -q
+      - name: Test
+        run: pytest --cov=app --cov-fail-under=80
+      - name: Build image
+        run: docker build -t shopsmart:${{ github.sha }} .
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy (placeholder)
+        run: echo "Deploy container here (e.g. docker push + ssh compose up)"
