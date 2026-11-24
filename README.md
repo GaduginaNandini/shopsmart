@@ -56,6 +56,9 @@ escalates to a human. See `docs/ai-usage-log.md` and `docs/evidence/`.
 | Pipeline green | green | Workflow written; goes green on first push to GitHub (not yet run) |
 | Load | 0 server errors | 986 requests, 0 server errors, p95 11 ms |
 
+## Deliverables
+`docs/ShopSmart_Presentation.pptx` (12 slides) · report (Claude Doc, export to Word/PDF) · `docs/demo/shopsmart_demo.mp4` · `docs/evidence/README.md` (status of every task) · `TODO_BEFORE_SUBMISSION.md`
+
 ## Verification commands
 ```bash
 pytest --cov=app                               # unit, integration, acceptance

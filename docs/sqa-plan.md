@@ -24,4 +24,4 @@
 
 *Usability is only a proxy (functional journeys). Run a 5-user test (time to first checkout, SUS questionnaire in Google Forms) and replace this row.
 
-Chart: `docs/screenshots/sqa_radar.png`. Interpretation: correctness is the weak spot because the keyword fallback answers only half of unseen paraphrased questions (safe escalation, not wrong answers). Measure the LLM mode with `GEMINI_API_KEY` set and update the score. The dev-set score of 30/30 is optimistic because the retriever was tuned on those questions.
+Chart: `docs/screenshots/sqa_radar.png`. Interpretation: correctness is the weak spot because the keyword fallback answers only half of unseen paraphrased questions (8 of the 10 misses were safe escalations, 1 was a wrong answer, 1 quoted the refund policy where escalation was expected). Measure the LLM mode with `GEMINI_API_KEY` set and update the score. The dev-set score of 30/30 is optimistic because the retriever was tuned on those questions.
