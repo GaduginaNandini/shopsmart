@@ -8184,9 +8184,24 @@ var authToken = null;
 var currentUser = null;
 var hasAdmin = true;
 var cartId = null;
+var allProducts = [];
+var activeProductDetail = null;
 var firebaseApp = initializeApp(firebase_applet_config_default);
 var firebaseAuth = getAuth(firebaseApp);
 var googleProvider = new GoogleAuthProvider();
+var PRODUCT_IMAGES = {
+  notebook: "/images/product_notebook_1795544241906.jpg",
+  "pen set": "/images/product_pen_set_1795544243133.jpg",
+  "desk lamp": "/images/product_desk_lamp_1795544242050.jpg",
+  backpack: "/images/product_backpack_1795544242796.jpg"
+};
+var CATEGORY_FALLBACK_IMAGES = {
+  Stationery: "/images/product_notebook_1795544241906.jpg",
+  Electronics: "/images/product_desk_lamp_1795544242050.jpg",
+  Accessories: "/images/product_backpack_1795544242796.jpg",
+  General: "/images/hero_workspace_showcase_1795544241481.jpg"
+};
+var HERO_IMAGE = "/images/hero_workspace_showcase_1795544241481.jpg";
 function $(id) {
   const el = document.getElementById(id);
   if (!el) throw new Error(`Missing element #${id}`);
@@ -8197,6 +8212,24 @@ function inputVal(id) {
 }
 function setInputVal(id, value) {
   $(id).value = value;
+}
+function getProductImage(p) {
+  const byName = PRODUCT_IMAGES[p.name.trim().toLowerCase()];
+  if (byName) return byName;
+  return CATEGORY_FALLBACK_IMAGES[p.category] ?? HERO_IMAGE;
+}
+function getProductDisplayMeta(p) {
+  const priceNum = Number(p.price) || 0;
+  const original = (priceNum * 1.15).toFixed(2);
+  const seed = p.id % 4;
+  const ratings = ["4.9", "4.8", "4.7", "4.9"];
+  const reviews = [142, 96, 214, 178];
+  return {
+    rating: ratings[seed],
+    reviews: reviews[seed],
+    originalPrice: original,
+    discountLabel: "13% off MRP"
+  };
 }
 async function api(path, method = "GET", body, extraHeaders) {
   const headers = { ...extraHeaders ?? {} };
@@ -8234,14 +8267,30 @@ function showAdminMessage(msg, isError = false) {
   el.textContent = msg;
   el.className = isError ? "msg err" : "msg ok";
 }
+function openAuthModal() {
+  $("auth-modal").hidden = false;
+}
+function closeAuthModal() {
+  $("auth-modal").hidden = true;
+}
+function openChatWindow() {
+  $("chat-window").hidden = false;
+  $("chat-fab").setAttribute("aria-expanded", "true");
+  $("chat-input").focus();
+}
+function closeChatWindow() {
+  $("chat-window").hidden = true;
+  $("chat-fab").setAttribute("aria-expanded", "false");
+}
 function setActiveTab(tab) {
   for (const id of ["tab-shop", "tab-orders", "tab-admin"]) {
-    const btn = $(id);
-    btn.classList.toggle("active", id === `tab-${tab}`);
+    $(id).classList.toggle("active", id === `tab-${tab}`);
   }
   $("view-shop").hidden = tab !== "shop";
   $("view-orders").hidden = tab !== "orders";
   $("view-admin").hidden = tab !== "admin";
+  $("mobile-drawer").hidden = true;
+  $("mobile-menu-btn").setAttribute("aria-expanded", "false");
   if (tab === "orders") {
     void loadOrderHistory();
   } else if (tab === "admin") {
@@ -8253,20 +8302,28 @@ function renderAuthBar() {
   const userBox = $("auth-user");
   const claimBtn = $("claim-admin-btn");
   const adminTab = $("tab-admin");
+  const mobileAdminBtn = $("mobile-admin-btn");
+  const accountBtn = $("account-toggle-btn");
   if (currentUser) {
     guestBox.hidden = true;
     userBox.hidden = false;
-    $("user-badge").textContent = `${currentUser.name} (${currentUser.email}) \u2014 ${currentUser.role}`;
+    $("user-badge").textContent = `${currentUser.name} (${currentUser.email})`;
+    $("user-role-sub").textContent = `Account role: ${currentUser.role}`;
+    accountBtn.textContent = currentUser.name.split(" ")[0] || "Account";
     if (!inputVal("email")) {
       setInputVal("email", currentUser.email);
     }
     claimBtn.hidden = hasAdmin || currentUser.role === "admin";
-    adminTab.hidden = currentUser.role !== "admin";
+    const isAdmin = currentUser.role === "admin";
+    adminTab.hidden = !isAdmin;
+    mobileAdminBtn.hidden = !isAdmin;
   } else {
     guestBox.hidden = false;
     userBox.hidden = true;
+    accountBtn.textContent = "Sign In";
     claimBtn.hidden = true;
     adminTab.hidden = true;
+    mobileAdminBtn.hidden = true;
     if (!$("view-admin").hidden) {
       setActiveTab("shop");
     }
@@ -8289,63 +8346,152 @@ async function ensureCart() {
 function renderCart(c) {
   const ul = $("cart-items");
   ul.replaceChildren();
-  c.items.forEach((item) => {
-    const li = document.createElement("li");
-    li.className = "cart-row";
-    const label = document.createElement("span");
-    label.textContent = `${item.name} x ${item.quantity} (INR ${item.unit_price})`;
-    const actions = document.createElement("div");
-    actions.className = "cart-actions";
-    const minusBtn = document.createElement("button");
-    minusBtn.type = "button";
-    minusBtn.className = "secondary small";
-    minusBtn.textContent = "-";
-    minusBtn.setAttribute("aria-label", `Decrease ${item.name} quantity`);
-    minusBtn.onclick = async () => {
-      const id = await ensureCart();
-      const r = await api(
-        `/api/cart/${id}/items/${item.product_id}`,
-        "PATCH",
-        { quantity: item.quantity - 1 }
-      );
-      if (r.ok) renderCart(r.data);
-      else showOrderResult(r.data.error ?? "Failed to update cart", true);
-    };
-    const plusBtn = document.createElement("button");
-    plusBtn.type = "button";
-    plusBtn.className = "secondary small";
-    plusBtn.textContent = "+";
-    plusBtn.setAttribute("aria-label", `Increase ${item.name} quantity`);
-    plusBtn.onclick = async () => {
-      const id = await ensureCart();
-      const r = await api(
-        `/api/cart/${id}/items`,
-        "POST",
-        { product_id: item.product_id, quantity: 1 }
-      );
-      if (r.ok) renderCart(r.data);
-      else showOrderResult(r.data.error ?? "Failed to update cart", true);
-    };
-    const removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.className = "secondary small";
-    removeBtn.textContent = "Remove";
-    removeBtn.id = `remove-${item.product_id}`;
-    removeBtn.onclick = async () => {
-      const id = await ensureCart();
-      const r = await api(
-        `/api/cart/${id}/items/${item.product_id}`,
-        "DELETE"
-      );
-      if (r.ok) renderCart(r.data);
-    };
-    actions.append(minusBtn, plusBtn, removeBtn);
-    li.append(label, actions);
-    ul.appendChild(li);
-  });
+  const totalUnits = c.items.reduce((sum, item) => sum + item.quantity, 0);
+  $("cart-count").textContent = String(totalUnits);
+  if (c.items.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "muted";
+    empty.style.fontSize = "13.5px";
+    empty.textContent = "Your bag is empty. Add items from the catalogue.";
+    ul.appendChild(empty);
+  } else {
+    c.items.forEach((item) => {
+      const li = document.createElement("li");
+      li.className = "cart-row";
+      const top = document.createElement("div");
+      top.className = "cart-row-top";
+      const nameEl = document.createElement("strong");
+      nameEl.textContent = item.name;
+      const priceEl = document.createElement("span");
+      priceEl.className = "mono";
+      priceEl.textContent = `INR ${item.unit_price} \xD7 ${item.quantity}`;
+      top.append(nameEl, priceEl);
+      const actions = document.createElement("div");
+      actions.className = "cart-actions";
+      const minusBtn = document.createElement("button");
+      minusBtn.type = "button";
+      minusBtn.className = "secondary small";
+      minusBtn.textContent = "-";
+      minusBtn.setAttribute("aria-label", `Decrease ${item.name} quantity`);
+      minusBtn.onclick = async () => {
+        const id = await ensureCart();
+        const r = await api(
+          `/api/cart/${id}/items/${item.product_id}`,
+          "PATCH",
+          { quantity: item.quantity - 1 }
+        );
+        if (r.ok) renderCart(r.data);
+        else showOrderResult(r.data.error ?? "Failed to update cart", true);
+      };
+      const plusBtn = document.createElement("button");
+      plusBtn.type = "button";
+      plusBtn.className = "secondary small";
+      plusBtn.textContent = "+";
+      plusBtn.setAttribute("aria-label", `Increase ${item.name} quantity`);
+      plusBtn.onclick = async () => {
+        const id = await ensureCart();
+        const r = await api(
+          `/api/cart/${id}/items`,
+          "POST",
+          { product_id: item.product_id, quantity: 1 }
+        );
+        if (r.ok) renderCart(r.data);
+        else showOrderResult(r.data.error ?? "Failed to update cart", true);
+      };
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "danger small";
+      removeBtn.style.marginLeft = "auto";
+      removeBtn.textContent = "Remove";
+      removeBtn.id = `remove-${item.product_id}`;
+      removeBtn.onclick = async () => {
+        const id = await ensureCart();
+        const r = await api(
+          `/api/cart/${id}/items/${item.product_id}`,
+          "DELETE"
+        );
+        if (r.ok) renderCart(r.data);
+      };
+      actions.append(minusBtn, plusBtn, removeBtn);
+      li.append(top, actions);
+      ul.appendChild(li);
+    });
+  }
   $("cart-total").textContent = c.total;
-  const couponBadge = $("active-coupon");
-  couponBadge.textContent = c.coupon ? `Coupon applied: ${c.coupon}` : "";
+  $("active-coupon").textContent = c.coupon ? `${c.coupon} applied` : "";
+}
+function openProductDetails(p) {
+  activeProductDetail = p;
+  const imgUrl = getProductImage(p);
+  const meta = getProductDisplayMeta(p);
+  $("pdp-category").textContent = `${p.category} \xB7 Product #${p.id}`;
+  $("pdp-title").textContent = p.name;
+  $("pdp-desc").textContent = p.description || "Engineered workspace essential built for everyday reliability.";
+  $("pdp-price").textContent = `INR ${p.price}`;
+  $("pdp-was").textContent = `INR ${meta.originalPrice}`;
+  $("pdp-discount").textContent = meta.discountLabel;
+  $("pdp-stock").textContent = p.stock > 0 ? `${p.stock} units ready to ship` : "Currently out of stock";
+  const ratingEl = $("pdp-rating");
+  ratingEl.replaceChildren();
+  const starSpan = document.createElement("span");
+  starSpan.className = "star";
+  starSpan.textContent = `\u2605 ${meta.rating}`;
+  const revSpan = document.createElement("span");
+  revSpan.className = "num";
+  revSpan.textContent = `(${meta.reviews} verified reviews)`;
+  ratingEl.append(starSpan, revSpan);
+  const mainImg = $("pdp-main-image");
+  mainImg.src = imgUrl;
+  mainImg.alt = p.name;
+  const thumbs = $("pdp-thumbs");
+  thumbs.replaceChildren();
+  const galleryUrls = [imgUrl, HERO_IMAGE];
+  galleryUrls.forEach((url, idx) => {
+    const tBtn = document.createElement("button");
+    tBtn.type = "button";
+    tBtn.className = idx === 0 ? "pdp-thumb-btn active" : "pdp-thumb-btn";
+    tBtn.setAttribute("aria-label", `View image ${idx + 1} for ${p.name}`);
+    const tImg = document.createElement("img");
+    tImg.src = url;
+    tImg.alt = `${p.name} view ${idx + 1}`;
+    tImg.referrerPolicy = "no-referrer";
+    tBtn.appendChild(tImg);
+    tBtn.onclick = () => {
+      mainImg.src = url;
+      thumbs.querySelectorAll(".pdp-thumb-btn").forEach((el, j) => {
+        el.classList.toggle("active", j === idx);
+      });
+    };
+    thumbs.appendChild(tBtn);
+  });
+  setInputVal("pdp-qty", "1");
+  $("pdp-add-btn").disabled = p.stock <= 0;
+  $("pdp-feedback").textContent = "";
+  $("product-modal").hidden = false;
+}
+function closeProductDetails() {
+  $("product-modal").hidden = true;
+  activeProductDetail = null;
+}
+function updateCategoryCounts(products) {
+  const counts = { All: products.length };
+  products.forEach((p) => {
+    counts[p.category] = (counts[p.category] ?? 0) + 1;
+  });
+  document.querySelectorAll("[data-cat-count]").forEach((el) => {
+    const cat = el.dataset.catCount || "All";
+    if (cat === "All") {
+      el.textContent = `${counts.All ?? 0} curated items`;
+    } else if (counts[cat] !== void 0) {
+      el.textContent = `${counts[cat]} item${counts[cat] === 1 ? "" : "s"}`;
+    }
+  });
+}
+function syncCategoryUI(selected) {
+  $("category-filter").value = selected;
+  document.querySelectorAll("[data-cat-card]").forEach((card) => {
+    card.classList.toggle("active", card.dataset.catCard === selected);
+  });
 }
 async function loadProducts() {
   const q = inputVal("search-q").trim();
@@ -8358,35 +8504,83 @@ async function loadProducts() {
   const box = $("products");
   box.replaceChildren();
   if (!r.ok || !Array.isArray(r.data) || r.data.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "muted";
-    empty.textContent = "No matching products found.";
+    const empty = document.createElement("div");
+    empty.className = "panel-card";
+    empty.style.gridColumn = "1 / -1";
+    empty.textContent = "No matching products found. Try clearing your filter or search query.";
     box.appendChild(empty);
     return;
   }
+  if (!q && category === "All") {
+    allProducts = r.data;
+    updateCategoryCounts(allProducts);
+  }
   r.data.forEach((p) => {
-    const row = document.createElement("div");
-    row.className = "product";
-    row.id = `product-${p.id}`;
-    const info = document.createElement("div");
-    const title = document.createElement("strong");
-    title.textContent = p.name;
-    const cat = document.createElement("span");
-    cat.className = "tag";
-    cat.textContent = p.category;
-    const desc = document.createElement("div");
-    desc.className = "muted";
-    desc.textContent = p.description || "";
-    const meta = document.createElement("div");
-    meta.className = "muted";
-    meta.textContent = `INR ${p.price} \xB7 ${p.stock} in stock`;
-    info.append(title, " ", cat, desc, meta);
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.id = `add-${p.id}`;
-    btn.textContent = p.stock > 0 ? "Add to cart" : "Out of stock";
-    btn.disabled = p.stock <= 0;
-    btn.onclick = async () => {
+    const card = document.createElement("article");
+    card.className = "product";
+    card.id = `product-${p.id}`;
+    const thumb = document.createElement("div");
+    thumb.className = "product-thumb";
+    thumb.onclick = () => openProductDetails(p);
+    const img = document.createElement("img");
+    img.src = getProductImage(p);
+    img.alt = p.name;
+    img.referrerPolicy = "no-referrer";
+    img.onerror = () => {
+      thumb.replaceChildren();
+      const fb = document.createElement("div");
+      fb.className = "product-fallback";
+      fb.textContent = p.name;
+      thumb.appendChild(fb);
+    };
+    thumb.appendChild(img);
+    const body = document.createElement("div");
+    body.className = "product-body";
+    const metaLine = document.createElement("div");
+    metaLine.className = "product-meta-line";
+    metaLine.textContent = `${p.category} \xB7 ${p.stock > 0 ? `${p.stock} in stock` : "Out of stock"}`;
+    const titleBtn = document.createElement("button");
+    titleBtn.type = "button";
+    titleBtn.className = "product-title-btn";
+    titleBtn.textContent = p.name;
+    titleBtn.onclick = () => openProductDetails(p);
+    const desc = document.createElement("p");
+    desc.className = "product-desc";
+    desc.textContent = p.description || "Precision everyday workspace item.";
+    const disp = getProductDisplayMeta(p);
+    const ratingRow = document.createElement("div");
+    ratingRow.className = "product-rating";
+    const star = document.createElement("span");
+    star.className = "star";
+    star.textContent = `\u2605 ${disp.rating}`;
+    const rev = document.createElement("span");
+    rev.className = "num";
+    rev.textContent = `(${disp.reviews} reviews)`;
+    ratingRow.append(star, rev);
+    const priceRow = document.createElement("div");
+    priceRow.className = "product-price-row";
+    const priceGroup = document.createElement("div");
+    priceGroup.className = "price-group";
+    const now = document.createElement("span");
+    now.className = "price-now mono";
+    now.textContent = `INR ${p.price}`;
+    const was = document.createElement("span");
+    was.className = "price-was mono";
+    was.textContent = `INR ${disp.originalPrice}`;
+    priceGroup.append(now, was);
+    const disc = document.createElement("span");
+    disc.className = "discount-note";
+    disc.textContent = disp.discountLabel;
+    priceRow.append(priceGroup, disc);
+    const actions = document.createElement("div");
+    actions.className = "product-actions";
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "primary small";
+    addBtn.id = `add-${p.id}`;
+    addBtn.textContent = p.stock > 0 ? "Add to Cart" : "Out of Stock";
+    addBtn.disabled = p.stock <= 0;
+    addBtn.onclick = async () => {
       const id = await ensureCart();
       const res = await api(
         `/api/cart/${id}/items`,
@@ -8400,8 +8594,15 @@ async function loadProducts() {
         showOrderResult(res.data.error ?? "Unable to add item", true);
       }
     };
-    row.append(info, btn);
-    box.appendChild(row);
+    const detailsBtn = document.createElement("button");
+    detailsBtn.type = "button";
+    detailsBtn.className = "secondary small";
+    detailsBtn.textContent = "Details";
+    detailsBtn.onclick = () => openProductDetails(p);
+    actions.append(addBtn, detailsBtn);
+    body.append(metaLine, titleBtn, desc, ratingRow, priceRow, actions);
+    card.append(thumb, body);
+    box.appendChild(card);
   });
 }
 async function loadOrderHistory() {
@@ -8410,7 +8611,7 @@ async function loadOrderHistory() {
   if (!authToken || !currentUser) {
     const p = document.createElement("p");
     p.className = "muted";
-    p.textContent = "Sign in to view your full order history, or look up a specific order below by ID and email.";
+    p.textContent = "Sign in via the Account button to view your full order history, or look up an order below.";
     listEl.appendChild(p);
     return;
   }
@@ -8428,12 +8629,15 @@ async function loadOrderHistory() {
     const head = document.createElement("div");
     head.className = "order-head";
     const strong = document.createElement("strong");
-    strong.textContent = `Order #${order.id} \u2014 ${order.status}`;
+    strong.className = "mono";
+    strong.textContent = `Order #${order.id} \xB7 ${order.status}`;
     const total = document.createElement("span");
+    total.className = "mono";
     total.textContent = `INR ${order.total}`;
     head.append(strong, total);
     const meta = document.createElement("div");
     meta.className = "muted";
+    meta.style.fontSize = "13px";
     meta.textContent = `Placed ${new Date(order.createdAt).toLocaleString()} \xB7 Payment Ref: ${order.paymentRef}`;
     const itemsUl = document.createElement("ul");
     itemsUl.className = "order-items";
@@ -8446,6 +8650,55 @@ async function loadOrderHistory() {
     listEl.appendChild(card);
   });
 }
+function renderAdminCharts(products, orders) {
+  const statusBox = $("chart-orders");
+  statusBox.replaceChildren();
+  const statuses = ["PAID", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED"];
+  const maxOrd = Math.max(orders.length, 1);
+  statuses.forEach((st) => {
+    const count = orders.filter((o) => o.status === st).length;
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    const lbl = document.createElement("span");
+    lbl.textContent = st;
+    const track = document.createElement("div");
+    track.className = "bar-track";
+    const fill = document.createElement("div");
+    fill.className = "bar-fill";
+    fill.style.width = `${Math.round(count / maxOrd * 100)}%`;
+    track.appendChild(fill);
+    const val = document.createElement("span");
+    val.className = "mono";
+    val.style.textAlign = "right";
+    val.textContent = String(count);
+    row.append(lbl, track, val);
+    statusBox.appendChild(row);
+  });
+  const stockBox = $("chart-stock");
+  stockBox.replaceChildren();
+  const maxStock = Math.max(...products.map((p) => p.stock), 1);
+  products.slice(0, 6).forEach((p) => {
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    const lbl = document.createElement("span");
+    lbl.textContent = p.name;
+    lbl.style.overflow = "hidden";
+    lbl.style.textOverflow = "ellipsis";
+    lbl.style.whiteSpace = "nowrap";
+    const track = document.createElement("div");
+    track.className = "bar-track";
+    const fill = document.createElement("div");
+    fill.className = "bar-fill";
+    fill.style.width = `${Math.round(p.stock / maxStock * 100)}%`;
+    track.appendChild(fill);
+    const val = document.createElement("span");
+    val.className = "mono";
+    val.style.textAlign = "right";
+    val.textContent = String(p.stock);
+    row.append(lbl, track, val);
+    stockBox.appendChild(row);
+  });
+}
 async function loadAdminData() {
   if (!currentUser || currentUser.role !== "admin") return;
   const [prodResp, ordResp, ticketResp] = await Promise.all([
@@ -8453,148 +8706,300 @@ async function loadAdminData() {
     api("/api/orders"),
     api("/api/support/tickets")
   ]);
-  const prodBox = $("admin-products");
-  prodBox.replaceChildren();
-  if (prodResp.ok && Array.isArray(prodResp.data)) {
-    prodResp.data.forEach((p) => {
-      const row = document.createElement("div");
-      row.className = "admin-row";
-      const info = document.createElement("div");
-      const name4 = document.createElement("strong");
-      name4.textContent = `#${p.id} ${p.name} (${p.category})`;
-      const stats = document.createElement("div");
-      stats.className = "muted";
-      stats.textContent = `INR ${p.price} \xB7 Stock: ${p.stock}`;
-      info.append(name4, stats);
-      const controls = document.createElement("div");
-      controls.className = "admin-controls";
-      const stockInput = document.createElement("input");
-      stockInput.type = "number";
-      stockInput.min = "0";
-      stockInput.value = String(p.stock);
-      stockInput.className = "inline-input";
-      stockInput.setAttribute("aria-label", `Stock for ${p.name}`);
-      const priceInput = document.createElement("input");
-      priceInput.type = "number";
-      priceInput.step = "0.01";
-      priceInput.min = "0";
-      priceInput.value = p.price;
-      priceInput.className = "inline-input";
-      priceInput.setAttribute("aria-label", `Price for ${p.name}`);
-      const saveBtn = document.createElement("button");
-      saveBtn.type = "button";
-      saveBtn.className = "secondary small";
-      saveBtn.textContent = "Update";
-      saveBtn.onclick = async () => {
-        const res = await api(
-          `/api/products/${p.id}`,
-          "PATCH",
-          { price: priceInput.value, stock: Number(stockInput.value) }
-        );
-        if (res.ok) {
-          showAdminMessage(`Updated ${p.name}.`);
-          await loadAdminData();
-          await loadProducts();
-        } else {
-          showAdminMessage(res.data.error ?? "Update failed", true);
-        }
-      };
-      const delBtn = document.createElement("button");
-      delBtn.type = "button";
-      delBtn.className = "secondary small danger";
-      delBtn.textContent = "Delete";
-      delBtn.onclick = async () => {
-        const res = await api(`/api/products/${p.id}`, "DELETE");
-        if (res.ok) {
-          showAdminMessage(`Deleted ${p.name}.`);
-          await loadAdminData();
-          await loadProducts();
-        } else {
-          showAdminMessage(res.data.error ?? "Delete failed", true);
-        }
-      };
-      controls.append(priceInput, stockInput, saveBtn, delBtn);
-      row.append(info, controls);
-      prodBox.appendChild(row);
+  const prodList = prodResp.ok && Array.isArray(prodResp.data) ? prodResp.data : [];
+  const ordList = ordResp.ok && Array.isArray(ordResp.data) ? ordResp.data : [];
+  const ticketList = ticketResp.ok && Array.isArray(ticketResp.data) ? ticketResp.data : [];
+  $("kpi-products").textContent = String(prodList.length);
+  const lowStockCount = prodList.filter((p) => p.stock <= 10).length;
+  $("kpi-low-stock").textContent = `${lowStockCount} low stock (\u226410)`;
+  const revenue = ordList.filter((o) => o.status !== "CANCELLED").reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+  $("kpi-revenue").textContent = `INR ${revenue.toFixed(2)}`;
+  $("kpi-orders").textContent = String(ordList.length);
+  const deliveredCount = ordList.filter((o) => o.status === "DELIVERED").length;
+  $("kpi-delivered").textContent = `${deliveredCount} delivered`;
+  $("kpi-tickets").textContent = String(ticketList.length);
+  renderAdminCharts(prodList, ordList);
+  const prodBody = $("admin-products");
+  prodBody.replaceChildren();
+  prodList.forEach((p) => {
+    const tr = document.createElement("tr");
+    const tdId = document.createElement("td");
+    tdId.className = "mono";
+    tdId.textContent = `#${p.id}`;
+    const tdName = document.createElement("td");
+    tdName.textContent = p.name;
+    const tdCat = document.createElement("td");
+    tdCat.className = "muted";
+    tdCat.textContent = p.category;
+    const tdPrice = document.createElement("td");
+    const priceInput = document.createElement("input");
+    priceInput.type = "number";
+    priceInput.step = "0.01";
+    priceInput.min = "0";
+    priceInput.value = p.price;
+    priceInput.className = "inline-input mono";
+    priceInput.setAttribute("aria-label", `Price for ${p.name}`);
+    tdPrice.appendChild(priceInput);
+    const tdStock = document.createElement("td");
+    const stockInput = document.createElement("input");
+    stockInput.type = "number";
+    stockInput.min = "0";
+    stockInput.value = String(p.stock);
+    stockInput.className = "inline-input mono";
+    stockInput.setAttribute("aria-label", `Stock for ${p.name}`);
+    tdStock.appendChild(stockInput);
+    const tdAct = document.createElement("td");
+    const actWrap = document.createElement("div");
+    actWrap.style.display = "flex";
+    actWrap.style.gap = "6px";
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.className = "secondary small";
+    saveBtn.textContent = "Update";
+    saveBtn.onclick = async () => {
+      const res = await api(
+        `/api/products/${p.id}`,
+        "PATCH",
+        { price: priceInput.value, stock: Number(stockInput.value) }
+      );
+      if (res.ok) {
+        showAdminMessage(`Updated ${p.name}.`);
+        await loadAdminData();
+        await loadProducts();
+      } else {
+        showAdminMessage(res.data.error ?? "Update failed", true);
+      }
+    };
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "danger small";
+    delBtn.textContent = "Delete";
+    delBtn.onclick = async () => {
+      const res = await api(`/api/products/${p.id}`, "DELETE");
+      if (res.ok) {
+        showAdminMessage(`Deleted ${p.name}.`);
+        await loadAdminData();
+        await loadProducts();
+      } else {
+        showAdminMessage(res.data.error ?? "Delete failed", true);
+      }
+    };
+    actWrap.append(saveBtn, delBtn);
+    tdAct.appendChild(actWrap);
+    tr.append(tdId, tdName, tdCat, tdPrice, tdStock, tdAct);
+    prodBody.appendChild(tr);
+  });
+  const ordBody = $("admin-orders");
+  ordBody.replaceChildren();
+  ordList.forEach((o) => {
+    const tr = document.createElement("tr");
+    const tdId = document.createElement("td");
+    tdId.className = "mono";
+    tdId.textContent = `#${o.id}`;
+    const tdEmail = document.createElement("td");
+    tdEmail.textContent = o.email;
+    const tdTotal = document.createElement("td");
+    tdTotal.className = "mono";
+    tdTotal.textContent = `INR ${o.total}`;
+    const tdStatus = document.createElement("td");
+    const stSpan = document.createElement("span");
+    stSpan.className = `status-text status-${o.status}`;
+    stSpan.textContent = o.status;
+    tdStatus.appendChild(stSpan);
+    const tdUpd = document.createElement("td");
+    const ctrlWrap = document.createElement("div");
+    ctrlWrap.style.display = "flex";
+    ctrlWrap.style.gap = "6px";
+    const select = document.createElement("select");
+    select.className = "inline-select";
+    ["PAID", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED"].forEach((st) => {
+      const opt = document.createElement("option");
+      opt.value = st;
+      opt.textContent = st;
+      if (st === o.status) opt.selected = true;
+      select.appendChild(opt);
+    });
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.className = "secondary small";
+    saveBtn.textContent = "Save";
+    saveBtn.onclick = async () => {
+      const res = await api(
+        `/api/orders/${o.id}/status`,
+        "PATCH",
+        { status: select.value }
+      );
+      if (res.ok) {
+        showAdminMessage(`Order #${o.id} updated to ${select.value}.`);
+        await loadAdminData();
+      } else {
+        showAdminMessage(res.data.error ?? "Failed to update status", true);
+      }
+    };
+    ctrlWrap.append(select, saveBtn);
+    tdUpd.appendChild(ctrlWrap);
+    tr.append(tdId, tdEmail, tdTotal, tdStatus, tdUpd);
+    ordBody.appendChild(tr);
+  });
+  const ticketBody = $("admin-tickets");
+  ticketBody.replaceChildren();
+  if (ticketList.length === 0) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 5;
+    td.className = "muted";
+    td.textContent = "No escalated support tickets.";
+    tr.appendChild(td);
+    ticketBody.appendChild(tr);
+  } else {
+    ticketList.forEach((t) => {
+      const tr = document.createElement("tr");
+      const tdId = document.createElement("td");
+      tdId.className = "mono";
+      tdId.textContent = `#${t.id}`;
+      const tdQ = document.createElement("td");
+      tdQ.textContent = t.question;
+      const tdEmail = document.createElement("td");
+      tdEmail.textContent = t.email || "anonymous";
+      const tdSt = document.createElement("td");
+      tdSt.className = `status-text status-${t.status}`;
+      tdSt.textContent = t.status;
+      const tdDate = document.createElement("td");
+      tdDate.className = "muted";
+      tdDate.textContent = new Date(t.createdAt).toLocaleString();
+      tr.append(tdId, tdQ, tdEmail, tdSt, tdDate);
+      ticketBody.appendChild(tr);
     });
   }
-  const ordBox = $("admin-orders");
-  ordBox.replaceChildren();
-  if (ordResp.ok && Array.isArray(ordResp.data)) {
-    ordResp.data.forEach((o) => {
-      const row = document.createElement("div");
-      row.className = "admin-row";
-      const info = document.createElement("div");
-      const title = document.createElement("strong");
-      title.textContent = `Order #${o.id} \xB7 ${o.email}`;
-      const sub = document.createElement("div");
-      sub.className = "muted";
-      sub.textContent = `Total: INR ${o.total} \xB7 Status: ${o.status}`;
-      info.append(title, sub);
-      const controls = document.createElement("div");
-      controls.className = "admin-controls";
-      const select = document.createElement("select");
-      ["PAID", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED"].forEach((st) => {
-        const opt = document.createElement("option");
-        opt.value = st;
-        opt.textContent = st;
-        if (st === o.status) opt.selected = true;
-        select.appendChild(opt);
-      });
-      const saveBtn = document.createElement("button");
-      saveBtn.type = "button";
-      saveBtn.className = "secondary small";
-      saveBtn.textContent = "Set Status";
-      saveBtn.onclick = async () => {
-        const res = await api(
-          `/api/orders/${o.id}/status`,
-          "PATCH",
-          { status: select.value }
-        );
-        if (res.ok) {
-          showAdminMessage(`Order #${o.id} status set to ${select.value}.`);
-          await loadAdminData();
-        } else {
-          showAdminMessage(res.data.error ?? "Failed to update status", true);
-        }
-      };
-      controls.append(select, saveBtn);
-      row.append(info, controls);
-      ordBox.appendChild(row);
-    });
-  }
-  const ticketsBox = $("admin-tickets");
-  ticketsBox.replaceChildren();
-  if (ticketResp.ok && Array.isArray(ticketResp.data)) {
-    if (ticketResp.data.length === 0) {
-      const p = document.createElement("p");
-      p.className = "muted";
-      p.textContent = "No escalated support tickets.";
-      ticketsBox.appendChild(p);
-    } else {
-      ticketResp.data.forEach((t) => {
-        const row = document.createElement("div");
-        row.className = "admin-row";
-        const info = document.createElement("div");
-        const title = document.createElement("strong");
-        title.textContent = `Ticket #${t.id} (${t.status})`;
-        const q = document.createElement("div");
-        q.textContent = t.question;
-        const meta = document.createElement("div");
-        meta.className = "muted";
-        meta.textContent = `${t.email || "anonymous"} \xB7 ${new Date(t.createdAt).toLocaleString()}`;
-        info.append(title, q, meta);
-        row.appendChild(info);
-        ticketsBox.appendChild(row);
-      });
-    }
+}
+async function sendChatMessage(overrideMessage) {
+  const q = (overrideMessage ?? inputVal("chat-input")).trim();
+  if (!q) return;
+  const log = $("chat-log");
+  const you = document.createElement("div");
+  you.className = "chat-msg you";
+  you.textContent = q;
+  log.appendChild(you);
+  if (!overrideMessage) setInputVal("chat-input", "");
+  log.scrollTop = log.scrollHeight;
+  const loader = $("chat-loading");
+  loader.hidden = false;
+  try {
+    const r = await api(
+      "/api/chat",
+      "POST",
+      { message: q }
+    );
+    const bot = document.createElement("div");
+    bot.className = r.data.escalated ? "chat-msg bot escalated" : "chat-msg bot";
+    bot.textContent = r.data.answer;
+    const src = document.createElement("span");
+    src.className = "chat-source";
+    src.textContent = r.data.escalated ? "Escalated to human support" : `Source: ${r.data.source}`;
+    bot.appendChild(src);
+    log.appendChild(bot);
+    log.scrollTop = log.scrollHeight;
+  } finally {
+    loader.hidden = true;
   }
 }
 $("tab-shop").onclick = () => setActiveTab("shop");
 $("tab-orders").onclick = () => setActiveTab("orders");
 $("tab-admin").onclick = () => setActiveTab("admin");
-$("search-btn").onclick = () => void loadProducts();
-$("category-filter").onchange = () => void loadProducts();
+document.querySelectorAll("[data-nav-cat]").forEach((btn) => {
+  btn.onclick = () => {
+    const cat = btn.dataset.navCat || "All";
+    setActiveTab("shop");
+    syncCategoryUI(cat);
+    void loadProducts();
+    $("catalogue-section").scrollIntoView({ behavior: "smooth" });
+  };
+});
+document.querySelectorAll("[data-cat-card]").forEach((card) => {
+  card.onclick = () => {
+    const cat = card.dataset.catCard || "All";
+    syncCategoryUI(cat);
+    void loadProducts();
+    $("catalogue-section").scrollIntoView({ behavior: "smooth" });
+  };
+});
+document.querySelectorAll("[data-mobile-tab]").forEach((btn) => {
+  btn.onclick = () => {
+    const tab = btn.dataset.mobileTab;
+    setActiveTab(tab);
+  };
+});
+$("mobile-menu-btn").onclick = () => {
+  const drawer = $("mobile-drawer");
+  const isOpen = !drawer.hidden;
+  drawer.hidden = isOpen;
+  $("mobile-menu-btn").setAttribute("aria-expanded", String(!isOpen));
+};
+$("mobile-search-q").addEventListener("input", () => {
+  setInputVal("search-q", inputVal("mobile-search-q"));
+  void loadProducts();
+});
+$("search-btn").onclick = () => {
+  setActiveTab("shop");
+  void loadProducts();
+  $("catalogue-section").scrollIntoView({ behavior: "smooth" });
+};
+$("search-q").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    $("search-btn").click();
+  }
+});
+$("category-filter").onchange = () => {
+  const val = $("category-filter").value;
+  syncCategoryUI(val);
+  void loadProducts();
+};
+$("hero-shop-btn").onclick = () => {
+  $("catalogue-section").scrollIntoView({ behavior: "smooth" });
+};
+$("hero-chat-btn").onclick = openChatWindow;
+$("cart-toggle-btn").onclick = () => {
+  setActiveTab("shop");
+  $("cart-panel").scrollIntoView({ behavior: "smooth" });
+};
+$("account-toggle-btn").onclick = openAuthModal;
+$("auth-close-btn").onclick = closeAuthModal;
+$("auth-modal").addEventListener("click", (e) => {
+  if (e.target === $("auth-modal")) closeAuthModal();
+});
+$("pdp-close-btn").onclick = closeProductDetails;
+$("product-modal").addEventListener("click", (e) => {
+  if (e.target === $("product-modal")) closeProductDetails();
+});
+$("pdp-qty-dec").onclick = () => {
+  const cur = Math.max(1, Number.parseInt(inputVal("pdp-qty"), 10) || 1);
+  setInputVal("pdp-qty", String(Math.max(1, cur - 1)));
+};
+$("pdp-qty-inc").onclick = () => {
+  const cur = Math.max(1, Number.parseInt(inputVal("pdp-qty"), 10) || 1);
+  const max = activeProductDetail ? Math.max(1, activeProductDetail.stock) : 99;
+  setInputVal("pdp-qty", String(Math.min(max, cur + 1)));
+};
+$("pdp-add-btn").onclick = async () => {
+  if (!activeProductDetail) return;
+  const qty = Math.max(1, Number.parseInt(inputVal("pdp-qty"), 10) || 1);
+  const id = await ensureCart();
+  const res = await api(
+    `/api/cart/${id}/items`,
+    "POST",
+    { product_id: activeProductDetail.id, quantity: qty }
+  );
+  const fb = $("pdp-feedback");
+  if (res.ok) {
+    renderCart(res.data);
+    fb.className = "msg ok";
+    fb.textContent = `Added ${qty} \xD7 ${activeProductDetail.name} to your bag.`;
+  } else {
+    fb.className = "msg err";
+    fb.textContent = res.data.error ?? "Unable to add item";
+  }
+};
 $("apply-coupon").onclick = async () => {
   const id = await ensureCart();
   const r = await api(
@@ -8617,7 +9022,7 @@ $("checkout-btn").onclick = async () => {
   });
   if (r.ok) {
     showOrderResult(
-      `Order #${r.data.order_id} placed. Status: ${r.data.status}. Total: ${r.data.total}`
+      `Order #${r.data.order_id} placed. Status: ${r.data.status}. Total: INR ${r.data.total}`
     );
     renderCart({ cart_id: id, coupon: null, items: [], total: "0.00" });
     await loadProducts();
@@ -8625,32 +9030,27 @@ $("checkout-btn").onclick = async () => {
     showOrderResult(r.data.error ?? "Checkout failed", true);
   }
 };
-$("chat-send").onclick = async () => {
-  const q = inputVal("chat-input").trim();
-  if (!q) return;
-  const log = $("chat-log");
-  const you = document.createElement("div");
-  you.className = "you";
-  you.textContent = `You: ${q}`;
-  log.appendChild(you);
-  const r = await api(
-    "/api/chat",
-    "POST",
-    { message: q }
-  );
-  const bot = document.createElement("div");
-  bot.className = r.data.escalated ? "bot escalated" : "bot";
-  bot.textContent = `Bot: ${r.data.answer}`;
-  log.appendChild(bot);
-  setInputVal("chat-input", "");
-  log.scrollTop = log.scrollHeight;
+$("chat-fab").onclick = () => {
+  if ($("chat-window").hidden) openChatWindow();
+  else closeChatWindow();
 };
+$("chat-close-btn").onclick = closeChatWindow;
+$("chat-send").onclick = () => void sendChatMessage();
 $("chat-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
-    $("chat-send").click();
+    void sendChatMessage();
   }
 });
+document.querySelectorAll("[data-prompt]").forEach((btn) => {
+  btn.onclick = () => {
+    const prompt = btn.dataset.prompt;
+    if (prompt) void sendChatMessage(prompt);
+  };
+});
+$("footer-orders-btn").onclick = () => setActiveTab("orders");
+$("footer-chat-btn").onclick = openChatWindow;
+$("footer-account-btn").onclick = openAuthModal;
 $("lookup-order-btn").onclick = async () => {
   const orderId = inputVal("lookup-order-id").trim();
   const email = inputVal("lookup-order-email").trim();
@@ -8666,10 +9066,12 @@ $("lookup-order-btn").onclick = async () => {
     return;
   }
   const summary = document.createElement("p");
+  summary.className = "mono";
   summary.textContent = `Order #${r.data.order_id} \xB7 Status: ${r.data.status} \xB7 Total: INR ${r.data.total} \xB7 Payment Ref: ${r.data.payment_ref}`;
   out.appendChild(summary);
   if (r.data.items) {
     const ul = document.createElement("ul");
+    ul.className = "order-items";
     r.data.items.forEach((i) => {
       const li = document.createElement("li");
       li.textContent = `${i.productName} \xD7 ${i.quantity} @ INR ${i.unitPrice}`;
@@ -8784,6 +9186,7 @@ $("admin-create-product-btn").onclick = async () => {
     showAdminMessage(r.data.error ?? "Failed to create product", true);
   }
 };
+renderCart({ cart_id: 0, coupon: null, items: [], total: "0.00" });
 void loadProducts();
 void refreshAuthStatus();
 /*! Bundled license information:

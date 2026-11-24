@@ -41,10 +41,13 @@ class ShopPage:
 
     def ask_chat(self, message):
         inp = self.driver.find_element(By.ID, "chat-input")
+        if not inp.is_displayed():
+            self.driver.find_element(By.ID, "chat-fab").click()
+            WebDriverWait(self.driver, 5).until(EC.visibility_of(inp))
         inp.clear()
         inp.send_keys(message)
         self.driver.find_element(By.ID, "chat-send").click()
         WebDriverWait(self.driver, 8).until(
-            lambda d: len(d.find_elements(By.CSS_SELECTOR, "#chat-log .bot")) > 0
+            lambda d: len(d.find_elements(By.CSS_SELECTOR, "#chat-log .bot")) > 1
         )
         return self.driver.find_elements(By.CSS_SELECTOR, "#chat-log .bot")[-1].text
