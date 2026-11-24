@@ -5,6 +5,10 @@ pipeline {
     nodejs 'Node22'
   }
 
+  environment {
+    CI = 'true'
+  }
+
   stages {
     stage('Checkout') {
       steps {
@@ -18,28 +22,37 @@ pipeline {
       }
     }
 
-    stage('Typecheck & Lint') {
+    stage('TypeScript Validation') {
+      steps {
+        sh 'npm run typecheck'
+      }
+    }
+
+    stage('Lint') {
       steps {
         sh 'npm run lint'
       }
     }
 
-    stage('Build') {
+    stage('Automated Tests') {
+      steps {
+        sh 'npm run test:coverage'
+      }
+    }
+
+    stage('Production Build') {
       steps {
         sh 'npm run build'
       }
     }
+  }
 
-    stage('Test') {
-      steps {
-        sh 'npm test'
-      }
+  post {
+    success {
+      echo 'ShopSmart Jenkins pipeline completed successfully.'
     }
-
-    stage('Docker Build') {
-      steps {
-        sh 'docker build -t shopsmart:${BUILD_NUMBER} .'
-      }
+    failure {
+      echo 'ShopSmart Jenkins pipeline failed. Review stage logs above.'
     }
   }
 }

@@ -9,13 +9,44 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run build
-      - run: npm test
-      - run: docker build -t shopsmart:ci .
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run automated tests with coverage
+        run: npm run test:coverage
+
+      - name: Build application
+        run: npm run build
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-coverage
+          path: coverage/
+
+      - name: Report pipeline outcome
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "### ShopSmart CI Passed" >> "$GITHUB_STEP_SUMMARY"
+            echo "TypeScript check, lint, Vitest/Supertest suite, and production build succeeded." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### ShopSmart CI Failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "Inspect failing step logs above." >> "$GITHUB_STEP_SUMMARY"
+          fi

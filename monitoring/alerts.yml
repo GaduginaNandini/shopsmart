@@ -1,6 +1,14 @@
 groups:
   - name: shopsmart_alerts
     rules:
+      - alert: ShopSmartTargetDown
+        expr: up{job="shopsmart"} == 0 or shopsmart_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ShopSmart application target is unreachable"
+
       - alert: ShopSmartHighErrorCount
         expr: increase(shopsmart_errors_total[5m]) > 5
         for: 1m

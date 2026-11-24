@@ -2,100 +2,396 @@
   "info": {
     "name": "ShopSmart API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "End-to-end API collection for ShopSmart Express + TypeScript + PostgreSQL"
+    "description": "End-to-end API collection for ShopSmart (Express + TypeScript + PostgreSQL + Gemini AI)"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:3000" },
     { "key": "token", "value": "" },
-    { "key": "cartId", "value": "1" },
-    { "key": "orderId", "value": "1" }
+    { "key": "ownerToken", "value": "" },
+    { "key": "customerEmail", "value": "postman.customer@example.com" },
+    { "key": "customerPassword", "value": "Password123!" },
+    { "key": "productId", "value": "1" },
+    { "key": "cartId", "value": "" },
+    { "key": "orderId", "value": "" }
   ],
   "item": [
     {
-      "name": "Health Check",
-      "request": { "method": "GET", "url": "{{baseUrl}}/health" }
-    },
-    {
-      "name": "Prometheus Metrics",
-      "request": { "method": "GET", "url": "{{baseUrl}}/metrics" }
-    },
-    {
-      "name": "Register Customer",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{baseUrl}}/api/auth/register",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"customer@example.com\",\n  \"password\": \"Password123!\"\n}"
+      "name": "1. Health & Observability",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Body status is ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/health" }
+        },
+        {
+          "name": "Prometheus Metrics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Exposes shopsmart_requests_total', () => pm.expect(pm.response.text()).to.include('shopsmart_requests_total'));"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/metrics" }
         }
-      }
+      ]
     },
     {
-      "name": "Login Customer",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{baseUrl}}/api/auth/login",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"customer@example.com\",\n  \"password\": \"Password123!\"\n}"
+      "name": "2. Authentication",
+      "item": [
+        {
+          "name": "Auth Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has hasAdmin boolean', () => pm.expect(pm.response.json()).to.have.property('hasAdmin'));"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/status" }
+        },
+        {
+          "name": "Register Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 or 409 if already registered', () => pm.expect([201, 409]).to.include(pm.response.code));",
+                  "const body = pm.response.json();",
+                  "if (body.token) { pm.environment.set('token', body.token); pm.collectionVariables.set('token', body.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Customer\",\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Token returned', () => pm.expect(body.token).to.be.a('string').and.not.empty);",
+                  "pm.environment.set('token', body.token);",
+                  "pm.collectionVariables.set('token', body.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Current User Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Matches customer email', () => pm.expect(pm.response.json().user.email).to.eql(pm.environment.get('customerEmail') || pm.collectionVariables.get('customerEmail')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/auth/me"
+          }
         }
-      }
+      ]
     },
     {
-      "name": "List Products",
-      "request": { "method": "GET", "url": "{{baseUrl}}/api/products" }
-    },
-    {
-      "name": "Create Cart",
-      "request": { "method": "POST", "url": "{{baseUrl}}/api/cart" }
-    },
-    {
-      "name": "Add Item to Cart",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{baseUrl}}/api/cart/{{cartId}}/items",
-        "body": { "mode": "raw", "raw": "{\n  \"product_id\": 1,\n  \"quantity\": 2\n}" }
-      }
-    },
-    {
-      "name": "Apply Coupon SAVE10",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{baseUrl}}/api/cart/{{cartId}}/coupon",
-        "body": { "mode": "raw", "raw": "{\n  \"code\": \"SAVE10\"\n}" }
-      }
-    },
-    {
-      "name": "Checkout Cart",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{baseUrl}}/api/cart/{{cartId}}/checkout",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"customer@example.com\",\n  \"card_token\": \"tok_ok\"\n}"
+      "name": "3. Products",
+      "item": [
+        {
+          "name": "List Products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const list = pm.response.json();",
+                  "pm.test('Returns non-empty product list', () => pm.expect(list.length).to.be.above(0));",
+                  "if (list.length > 0) { pm.environment.set('productId', String(list[0].id)); pm.collectionVariables.set('productId', String(list[0].id)); }"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/products" }
+        },
+        {
+          "name": "Get Product Details",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Product has price and stock', () => { pm.expect(pm.response.json()).to.have.property('price'); pm.expect(pm.response.json()).to.have.property('stock'); });"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/products/{{productId}}" }
         }
-      }
+      ]
     },
     {
-      "name": "Lookup Order",
-      "request": {
-        "method": "GET",
-        "url": "{{baseUrl}}/api/orders/{{orderId}}?email=customer@example.com"
-      }
+      "name": "4. Cart & Checkout",
+      "item": [
+        {
+          "name": "Create Cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const id = String(pm.response.json().cart_id);",
+                  "pm.environment.set('cartId', id);",
+                  "pm.collectionVariables.set('cartId', id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/cart"
+          }
+        },
+        {
+          "name": "Add Item to Cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Cart has 1 item', () => pm.expect(pm.response.json().items.length).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/cart/{{cartId}}/items",
+            "body": { "mode": "raw", "raw": "{\n  \"product_id\": {{productId}},\n  \"quantity\": 1\n}" }
+          }
+        },
+        {
+          "name": "Update Cart Item Quantity",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Quantity updated to 2', () => pm.expect(pm.response.json().items[0].quantity).to.eql(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/cart/{{cartId}}/items/{{productId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"quantity\": 2\n}" }
+          }
+        },
+        {
+          "name": "Apply Coupon SAVE10",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Coupon SAVE10 applied', () => pm.expect(pm.response.json().coupon).to.eql('SAVE10'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/cart/{{cartId}}/coupon",
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"SAVE10\"\n}" }
+          }
+        },
+        {
+          "name": "Get Cart Summary",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Total is positive', () => pm.expect(Number(pm.response.json().total)).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/cart/{{cartId}}" }
+        },
+        {
+          "name": "Checkout Cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Order status is PAID', () => pm.expect(body.status).to.eql('PAID'));",
+                  "pm.environment.set('orderId', String(body.order_id));",
+                  "pm.collectionVariables.set('orderId', String(body.order_id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/cart/{{cartId}}/checkout",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"card_token\": \"tok_ok\"\n}"
+            }
+          }
+        }
+      ]
     },
     {
-      "name": "Chat Support",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{baseUrl}}/api/chat",
-        "body": { "mode": "raw", "raw": "{\n  \"message\": \"How long does shipping take?\"\n}" }
-      }
+      "name": "5. Orders",
+      "item": [
+        {
+          "name": "List My Orders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/orders"
+          }
+        },
+        {
+          "name": "Lookup Order by Email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Order matches ID', () => pm.expect(String(pm.response.json().order_id)).to.eql(String(pm.environment.get('orderId') || pm.collectionVariables.get('orderId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/orders/{{orderId}}?email={{customerEmail}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. AI Support Chatbot",
+      "item": [
+        {
+          "name": "Ask Shipping Policy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Mentions business days', () => pm.expect(pm.response.json().answer.toLowerCase()).to.include('business days'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/chat",
+            "body": { "mode": "raw", "raw": "{\n  \"message\": \"How long does shipping take?\"\n}" }
+          }
+        },
+        {
+          "name": "Unrelated Question Escalation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Escalates out-of-policy query', () => pm.expect(pm.response.json().escalated).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/chat",
+            "body": { "mode": "raw", "raw": "{\n  \"message\": \"Do you provide helicopter delivery to Antarctica?\"\n}" }
+          }
+        }
+      ]
     }
   ]
 }

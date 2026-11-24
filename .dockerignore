@@ -1,6 +1,15 @@
 node_modules
 bun.lock
 .env
+.git
 coverage
 reports
 dist
+docs
+selenium_tests
+loadtest
+postman
+monitoring
+.github
+Jenkinsfile
+sonar-project.properties

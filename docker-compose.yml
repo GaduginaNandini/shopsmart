@@ -1,33 +1,45 @@
 services:
   db:
     image: postgres:16
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: shop
-      POSTGRES_PASSWORD: shop
-      POSTGRES_DB: shopsmart
+      POSTGRES_USER: ${SQL_USER:-shop}
+      POSTGRES_PASSWORD: ${SQL_PASSWORD:-shop}
+      POSTGRES_DB: ${SQL_DB_NAME:-shopsmart}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U shop -d shopsmart"]
+      test: ["CMD-SHELL", "pg_isready -U ${SQL_USER:-shop} -d ${SQL_DB_NAME:-shopsmart}"]
       interval: 5s
+      timeout: 5s
       retries: 10
+
   web:
     build: .
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       PORT: 3000
       SQL_HOST: db
       SQL_PORT: 5432
-      SQL_DB_NAME: shopsmart
-      SQL_USER: shop
-      SQL_PASSWORD: shop
-      SQL_ADMIN_USER: shop
-      SQL_ADMIN_PASSWORD: shop
+      SQL_DB_NAME: ${SQL_DB_NAME:-shopsmart}
+      SQL_USER: ${SQL_USER:-shop}
+      SQL_PASSWORD: ${SQL_PASSWORD:-shop}
+      SQL_ADMIN_USER: ${SQL_ADMIN_USER:-shop}
+      SQL_ADMIN_PASSWORD: ${SQL_ADMIN_PASSWORD:-shop}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       OWNER_TOKEN: ${OWNER_TOKEN:-}
+      SESSION_SECRET: ${SESSION_SECRET:-dev-shopsmart-session-secret}
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
 volumes:
   pgdata:

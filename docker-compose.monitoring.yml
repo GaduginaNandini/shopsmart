@@ -1,14 +1,18 @@
 services:
   prometheus:
     image: prom/prometheus:v2.54.1
+    restart: unless-stopped
     ports:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+    depends_on:
+      - web
 
   grafana:
     image: grafana/grafana:11.2.0
+    restart: unless-stopped
     ports:
       - "3001:3000"
     environment:

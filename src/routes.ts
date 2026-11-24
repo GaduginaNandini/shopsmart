@@ -40,10 +40,26 @@ router.get("/health", (_req: Request, res: Response) => {
 router.get("/metrics", (_req: Request, res: Response) => {
   const n = Math.max(metrics.requests, 1);
   const lines = [
+    "# HELP shopsmart_up Application availability indicator (1 = up)",
+    "# TYPE shopsmart_up gauge",
+    "shopsmart_up 1",
+    "# HELP shopsmart_requests_total Total HTTP requests handled",
+    "# TYPE shopsmart_requests_total counter",
     `shopsmart_requests_total ${metrics.requests}`,
+    "# HELP shopsmart_errors_total Total HTTP 5xx responses",
+    "# TYPE shopsmart_errors_total counter",
     `shopsmart_errors_total ${metrics.errors}`,
+    "# HELP shopsmart_orders_ok_total Total completed checkout orders",
+    "# TYPE shopsmart_orders_ok_total counter",
     `shopsmart_orders_ok_total ${metrics.orders_ok}`,
+    "# HELP shopsmart_orders_failed_total Total failed checkout attempts",
+    "# TYPE shopsmart_orders_failed_total counter",
     `shopsmart_orders_failed_total ${metrics.orders_failed}`,
+    "# HELP shopsmart_response_seconds_sum Cumulative HTTP request duration in seconds",
+    "# TYPE shopsmart_response_seconds_sum counter",
+    `shopsmart_response_seconds_sum ${metrics.latency_sum.toFixed(6)}`,
+    "# HELP shopsmart_response_seconds_avg Average HTTP request duration in seconds",
+    "# TYPE shopsmart_response_seconds_avg gauge",
     `shopsmart_response_seconds_avg ${(metrics.latency_sum / n).toFixed(6)}`,
   ];
   res
