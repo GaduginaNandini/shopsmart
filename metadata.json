@@ -1,0 +1,8 @@
+{
+  "name": "ShopSmart",
+  "description": "E-Commerce Platform with AI Support Chatbot",
+  "requestFramePermissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

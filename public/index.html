@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShopSmart</title>
+<meta name="description" content="E-Commerce Platform with AI Support Chatbot">
+<meta property="og:title" content="ShopSmart">
+<meta property="og:description" content="E-Commerce Platform with AI Support Chatbot">
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1c2430; --muted:#5d6b7c; --accent:#0b6e4f; --line:#e1e5ea; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--accent); color:#fff; padding:14px 24px; font-size:20px; font-weight:600; }
+  main { max-width:1100px; margin:24px auto; padding:0 16px; display:grid; gap:20px; grid-template-columns:2fr 1fr; }
+  @media (max-width:800px) { main { grid-template-columns:1fr; } }
+  section { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:16px; }
+  h2 { margin:0 0 12px; font-size:18px; }
+  .product { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line); }
+  .product:last-child { border-bottom:0; }
+  .muted { color:var(--muted); font-size:14px; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 14px; font-size:15px; cursor:pointer; }
+  button:hover { filter:brightness(1.1); }
+  button.secondary { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+  input { width:100%; padding:8px; margin:4px 0 8px; border:1px solid var(--line); border-radius:6px; font-size:15px; }
+  #cart-items li { display:flex; justify-content:space-between; margin:4px 0; }
+  #cart-items { padding:0; list-style:none; }
+  .total { font-weight:700; font-size:18px; margin:8px 0; }
+  #order-result.ok { color:var(--accent); font-weight:600; }
+  #order-result.err { color:#b3261e; font-weight:600; }
+  #chat-log { min-height:80px; max-height:220px; overflow:auto; background:#fafbfc; border:1px solid var(--line); border-radius:6px; padding:8px; margin-bottom:8px; }
+  .bot { color:var(--ink); } .you { color:var(--muted); }
+</style>
+</head>
+<body>
+<header>ShopSmart</header>
+<main>
+  <div>
+    <section aria-labelledby="cat-h">
+      <h2 id="cat-h">Catalogue</h2>
+      <div id="products"></div>
+    </section>
+    <section aria-labelledby="chat-h" style="margin-top:20px">
+      <h2 id="chat-h">Support chat</h2>
+      <div id="chat-log" aria-live="polite"></div>
+      <input id="chat-input" placeholder="Order status: &quot;order #1 you@example.com&quot;. Or ask about our policies" aria-label="Chat message">
+      <button id="chat-send">Send</button>
+      <p class="muted">Answers come from our written policy. Anything else goes to a human agent.</p>
+    </section>
+  </div>
+  <section aria-labelledby="cart-h">
+    <h2 id="cart-h">Your cart</h2>
+    <ul id="cart-items"></ul>
+    <div class="total">Total: <span id="cart-total">0.00</span></div>
+    <input id="coupon" placeholder="Coupon code" aria-label="Coupon code">
+    <button id="apply-coupon" class="secondary">Apply</button>
+    <hr>
+    <input id="email" type="email" placeholder="Email" aria-label="Email">
+    <input id="card-token" placeholder="Card token (tok_ok / tok_fail)" aria-label="Card token" value="tok_ok">
+    <button id="checkout-btn">Checkout</button>
+    <p id="order-result" role="status"></p>
+  </section>
+</main>
+<script>
+let cartId = null;
+const $ = id => document.getElementById(id);
+async function api(path, method='GET', body) {
+  const r = await fetch(path, {method, headers:{'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined});
+  return {ok:r.ok, data: await r.json()};
+}
+function text(el, t) { el.textContent = t; return el; }
+async function ensureCart() { if (!cartId) cartId = (await api('/api/cart','POST')).data.cart_id; return cartId; }
+function renderCart(c) {
+  const ul = $('cart-items'); ul.replaceChildren();
+  c.items.forEach(i => {
+    const li = document.createElement('li');
+    text(li.appendChild(document.createElement('span')), i.name + ' x ' + i.quantity);
+    const b = document.createElement('button'); b.className='secondary'; b.textContent='Remove';
+    b.id = 'remove-' + i.product_id; b.onclick = async () => renderCart((await api(`/api/cart/${cartId}/items/${i.product_id}`,'DELETE')).data);
+    li.appendChild(b); ul.appendChild(li);
+  });
+  $('cart-total').textContent = c.total;
+}
+async function loadProducts() {
+  const {data} = await api('/api/products'); const box = $('products');
+  box.replaceChildren();
+  data.forEach(p => {
+    const row = document.createElement('div'); row.className='product'; row.id='product-' + p.id;
+    const info = document.createElement('div');
+    text(info.appendChild(document.createElement('strong')), p.name);
+    const m = document.createElement('div'); m.className='muted'; m.textContent = 'INR ' + p.price + ' · ' + p.stock + ' in stock'; info.appendChild(m);
+    const b = document.createElement('button'); b.id='add-' + p.id; b.textContent='Add to cart';
+    b.onclick = async () => {
+      const id = await ensureCart();
+      const r = await api(`/api/cart/${id}/items`, 'POST', {product_id:p.id, quantity:1});
+      if (r.ok) renderCart(r.data); else { $('order-result').className='err'; $('order-result').textContent = r.data.error; }
+    };
+    row.append(info, b); box.appendChild(row);
+  });
+}
+$('apply-coupon').onclick = async () => {
+  const id = await ensureCart(); const r = await api(`/api/cart/${id}/coupon`,'POST',{code:$('coupon').value});
+  if (r.ok) renderCart(r.data); else { $('order-result').className='err'; $('order-result').textContent = r.data.error; }
+};
+$('checkout-btn').onclick = async () => {
+  const id = await ensureCart();
+  const r = await api(`/api/cart/${id}/checkout`,'POST',{email:$('email').value, card_token:$('card-token').value});
+  const out = $('order-result');
+  if (r.ok) { out.className='ok'; out.textContent = `Order #${r.data.order_id} placed. Status: ${r.data.status}. Total: ${r.data.total}`; renderCart({items:[], total:'0.00'}); loadProducts(); }
+  else { out.className='err'; out.textContent = r.data.error; }
+};
+$('chat-send').onclick = async () => {
+  const q = $('chat-input').value.trim(); if (!q) return;
+  const log = $('chat-log');
+  const you = document.createElement('div'); you.className='you'; you.textContent='You: ' + q; log.appendChild(you);
+  const r = await api('/api/chat','POST',{message:q});
+  const bot = document.createElement('div'); bot.className='bot'; bot.textContent='Bot: ' + r.data.answer; log.appendChild(bot);
+  $('chat-input').value=''; log.scrollTop = log.scrollHeight;
+};
+loadProducts();
+</script>
+</body>
+</html>
