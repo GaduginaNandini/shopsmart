@@ -1,0 +1,26 @@
+groups:
+  - name: shopsmart_alerts
+    rules:
+      - alert: ShopSmartHighErrorCount
+        expr: increase(shopsmart_errors_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ShopSmart 5xx error count exceeded threshold"
+
+      - alert: ShopSmartHighLatency
+        expr: shopsmart_response_seconds_avg > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ShopSmart average response latency above 500ms"
+
+      - alert: ShopSmartOrderFailures
+        expr: increase(shopsmart_orders_failed_total[5m]) > 10
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Spike in failed ShopSmart checkout attempts"

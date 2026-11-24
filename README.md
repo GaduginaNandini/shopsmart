@@ -1,75 +1,94 @@
 # ShopSmart — E-Commerce Platform with AI Support Chatbot
 
-![CI](https://github.com/<your-org>/shopsmart/actions/workflows/ci.yml/badge.svg)
+**Course:** AI in Software Engineering, Project P03
 
-Small online shops lose customers when queries go unanswered. ShopSmart offers a catalogue, cart and checkout
-(mocked payment) plus a support chatbot that answers order-status and policy questions, grounded in a written policy.
-
-**Users:** customer, shop owner, support agent. **Course:** AI in Software Engineering, Project P03.
-**Team:** <names> | **Guide:** <name> | **College:** <name>
+ShopSmart is a full-stack e-commerce web application built with **Express**, **TypeScript**, **PostgreSQL (Drizzle ORM)**, **Firebase Authentication**, and the **Gemini AI (`@google/genai`)** customer-support chatbot.
 
 ## Architecture
 ```
-Browser (HTML/JS) --> Flask app --+--> catalogue / cart / order modules --> PostgreSQL
-                                  +--> chatbot service --> order lookup + policy.md retrieval --> LLM (Gemini)
-                                                         \--> escalate to human when not grounded
+Browser (HTML/CSS/TypeScript bundled via esbuild)
+   │
+   ├── Firebase Google Sign-In + Email/Password Session Auth
+   ├── Storefront, Cart, Checkout (Mock Payment), Order History, Admin Dashboard
+   └── Express + TypeScript API (port 3000)
+          ├── PostgreSQL via Drizzle ORM (users, products, carts, cart_items, orders, order_items, support_tickets)
+          ├── Prometheus-compatible /metrics & /health endpoints
+          └── AI Support Chatbot (@google/genai gemini-4-hydrogen)
+                 ├── Order status lookup in PostgreSQL (email-verified)
+                 ├── Policy-grounded Gemini responses (src/chatbot/policy.md)
+                 ├── Offline keyword policy retrieval fallback
+                 └── Human escalation persisted to support_tickets
 ```
 
-## Quick start (clean machine)
-Requires Python 3.10+ and (optionally) Docker.
+## Features
+- **Authentication & Roles**: Customer registration and login (`scrypt` password hashing + HMAC Bearer tokens), Google Sign-In via Firebase Auth, and one-time first-admin role bootstrap (plus `X-Owner-Token` support for automated API clients).
+- **Product Catalogue**: Search by keyword and filter by category backed by PostgreSQL.
+- **Cart & Pricing Rules**: Persistent carts with quantity updates, 5% bulk discount for 10+ units of an item, `SAVE10` 10% cart coupon, and half-up cent rounding.
+- **Transactional Checkout & Mock Payment**: Atomic PostgreSQL stock deduction (`tok_fail` declines payment; other tokens approve with a payment reference).
+- **Order History & Admin Dashboard**: Authenticated customer order history, email-verified order lookup, admin product CRUD, order status management (`PAID`, `PACKED`, `SHIPPED`, `DELIVERED`, `CANCELLED`), and escalated support ticket queue.
+- **Responsible-AI Chatbot**: Answers from `src/chatbot/policy.md` using `@google/genai` (`gemini-4-hydrogen`) when `GEMINI_API_KEY` is configured, verifies numeric grounding against policy text, falls back to offline policy retrieval if needed, and escalates ungrounded questions to `support_tickets`.
+
+## Quick Start (Local / Node 22)
+1. Copy `.env.example` to `.env` and configure `SQL_HOST`, `SQL_DB_NAME`, `SQL_USER`, `SQL_PASSWORD`, `SQL_ADMIN_USER`, `SQL_ADMIN_PASSWORD`, and optional `GEMINI_API_KEY` / `OWNER_TOKEN`.
+2. Install dependencies and push the database schema:
+   ```bash
+   npm install
+   npx drizzle-kit push --config=src/db/drizzle.config.ts
+   ```
+3. Build and start:
+   ```bash
+   npm run build
+   npm run dev
+   ```
+   The app listens on `http://0.0.0.0:3000`.
+
+## Verification Commands
 ```bash
-git clone <repo-url> shopsmart && cd shopsmart
-python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -r requirements.txt -r requirements-dev.txt
-pytest --cov=app                                        # run tests
-flask --app wsgi run                                    # http://127.0.0.1:5000
+npm run lint      # TypeScript type-checking (tsc --noEmit)
+npm run build     # Client bundle (esbuild) + TypeScript check
+npm test          # Vitest unit & Supertest API integration tests
 ```
-Docker (PostgreSQL + app):
+
+## Docker & Monitoring (External Execution)
+Run the app and PostgreSQL together:
 ```bash
-export GEMINI_API_KEY=<optional>    # without a key the chatbot answers from policy text only
-docker compose up --build           # http://localhost:8000
+docker compose up --build
 ```
-
-## API
-| Method | Path | Purpose |
-|---|---|---|
-| GET | /api/products | list products |
-| POST | /api/products | create product; header `X-Owner-Token` (env `OWNER_TOKEN`, dev default `owner-dev-token`) |
-| POST | /api/cart | new cart |
-| POST | /api/cart/{id}/items | add item `{product_id, quantity}` |
-| POST | /api/cart/{id}/coupon | apply `{code}` (SAVE10) |
-| POST | /api/cart/{id}/checkout | `{email, card_token}`; token `tok_fail` is declined |
-| GET | /api/orders/{id}?email=... | order status; email must match the order |
-| POST | /api/chat | `{message}` -> `{answer, source, escalated}`; order status needs `order #N you@example.com` |
-| GET | /health, /metrics | health and Prometheus-style metrics |
-
-## Responsible AI rule
-The chatbot never invents policy. It answers only from `app/chatbot/policy.md` and order data; otherwise it
-escalates to a human. See `docs/ai-usage-log.md` and `docs/evidence/`.
-
-## Results against success metrics (measured 2026-11-24)
-| Metric | Target | Result |
-|---|---|---|
-| Checkout success in tests | 100% | 100% (all checkout tests and 9/9 browser journeys pass) |
-| Chatbot correct on 30 questions | 85% | 30/30 (100%) offline, but tuned on that set; **held-out 20 unseen questions: 10/20 (50%)**. LLM mode not yet measured: set `GEMINI_API_KEY` and run `python eval/run_chatbot_eval.py --llm` |
-| Coverage | 80% | 93% (44 tests) |
-| Pipeline green | green | Workflow written; goes green on first push to GitHub (not yet run) |
-| Load | 0 server errors | 986 requests, 0 server errors, p95 11 ms |
-
-## Deliverables
-`docs/ShopSmart_Presentation.pptx` (12 slides) · report (Claude Doc, export to Word/PDF) · `docs/demo/shopsmart_demo.mp4` · `docs/evidence/README.md` (status of every task) · `TODO_BEFORE_SUBMISSION.md`
-
-## Verification commands
+Run Prometheus + Grafana monitoring stack:
 ```bash
-pytest --cov=app                               # unit, integration, acceptance
-python eval/run_chatbot_eval.py                # 30-question chatbot eval
-python eval/run_chatbot_eval.py --heldout      # 20 unseen questions
-pytest selenium_tests                          # browser journeys (needs Chrome; webdriver-manager fetches the driver)
-locust -f loadtest/locustfile.py --host http://localhost:8000 --headless -u 20 -r 10 -t 30s
-pylint app && bandit -r app && radon cc app -a
-python tools/defect_risk.py                    # defect-risk ranking
+docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up --build
 ```
+External QA configurations included in the repository:
+- **CI/CD**: `.github/workflows/ci.yml`, `Jenkinsfile`
+- **API Collection**: `postman/shopsmart.postman_collection.json`
+- **E2E Browser Tests**: `selenium_tests/` (`pytest selenium_tests`)
+- **Load Testing**: `loadtest/locustfile.py` (`locust -f loadtest/locustfile.py --host http://localhost:3000`)
+- **Code Quality**: `sonar-project.properties`
 
-## Repo layout
-`app/` code · `tests/` pytest · `selenium_tests/` page-object browser tests · `eval/` chatbot evaluation · `loadtest/` Locust ·
-`monitoring/` Prometheus + Grafana · `docs/` SRS, diagrams, plans, evidence, checklist · `Jenkinsfile` · `.github/workflows/ci.yml`
+## API Reference
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/health` | Public | Health check |
+| GET | `/metrics` | Public | Prometheus-formatted metrics |
+| GET | `/api/auth/status` | Public | Check if an admin account exists |
+| POST | `/api/auth/register` | Public | Register a customer account |
+| POST | `/api/auth/login` | Public | Sign in with email and password |
+| POST | `/api/auth/firebase` | Bearer | Verify Firebase ID token and sync user |
+| POST | `/api/auth/claim-admin` | Bearer | Claim initial admin role if none exists |
+| GET | `/api/auth/me` | Bearer | Current authenticated user profile |
+| GET | `/api/products` | Public | List/search/filter products |
+| POST | `/api/products` | Admin | Create a product |
+| PATCH | `/api/products/:id` | Admin | Update a product |
+| DELETE | `/api/products/:id` | Admin | Delete an unused product |
+| POST | `/api/cart` | Optional | Create a shopping cart |
+| GET | `/api/cart/:cartId` | Public | Fetch cart items and calculated total |
+| POST | `/api/cart/:cartId/items` | Public | Add item to cart |
+| PATCH | `/api/cart/:cartId/items/:productId` | Public | Update cart item quantity |
+| DELETE | `/api/cart/:cartId/items/:productId` | Public | Remove item from cart |
+| POST | `/api/cart/:cartId/coupon` | Public | Apply coupon (`SAVE10`) |
+| POST | `/api/cart/:cartId/checkout` | Optional | Checkout with mock payment (`tok_fail` declines) |
+| GET | `/api/orders` | Bearer | Authenticated customer's orders (or all for admin) |
+| GET | `/api/orders/:orderId` | Optional | Order details (requires owner auth or `?email=` match) |
+| PATCH | `/api/orders/:orderId/status` | Admin | Update order fulfillment status |
+| POST | `/api/chat` | Optional | Support chatbot endpoint |
+| GET | `/api/support/tickets` | Admin | List escalated support tickets |

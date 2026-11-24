@@ -1,5 +1,5 @@
 /**
- * Support chatbot: looks up order status and the written policy, then asks Gemini.
+ * Support chatbot: looks up order status in PostgreSQL and written policy, then asks Gemini.
  *
  * Responsible-AI rule: the bot must NEVER invent refund (or any) policy. If the
  * written policy has no grounded answer, or the LLM's answer is not grounded in
@@ -8,10 +8,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { orders } from "../models.ts";
+import { GoogleGenAI } from "@google/genai";
+import { createSupportTicket, getOrderById } from "../db/repository.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const POLICY_PATH = path.join(__dirname, "policy.md");
+
+const GEMINI_MODEL = "gemini-4-hydrogen";
 
 const STOPWORDS = new Set([
   "the", "a", "an", "is", "are", "to", "of", "my", "i", "do", "does", "can", "how", "what",
@@ -67,6 +70,12 @@ export interface ChatReply {
   source: string;
   escalated: boolean;
 }
+
+export type LlmClientFn = (
+  system: string,
+  context: string,
+  question: string
+) => Promise<string | null>;
 
 export function loadSections(filePath = POLICY_PATH): PolicySection[] {
   const text = fs.readFileSync(filePath, "utf-8");
@@ -171,27 +180,26 @@ export async function callLlm(
   if (!key) {
     return null;
   }
-  const model = process.env.GEMINI_MODEL || "gemini-1.5-flash";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-    model
-  )}:generateContent?key=${encodeURIComponent(key)}`;
-  const prompt = `${system}\n\nCONTEXT:\n${context}\n\nQUESTION: ${question}`;
   try {
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-      signal: AbortSignal.timeout(15000),
+    const ai = new GoogleGenAI({
+      apiKey: key,
+      httpOptions: {
+        headers: {
+          "User-Agent": "aistudio-build",
+        },
+      },
     });
-    if (!resp.ok) {
-      return null;
-    }
-    const data = (await resp.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    return text ? text.trim() : null;
-  } catch {
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: `CONTEXT:\n${context}\n\nQUESTION: ${question}`,
+      config: {
+        systemInstruction: system,
+      },
+    });
+    const text = response.text?.trim();
+    return text || null;
+  } catch (err) {
+    console.warn("Gemini call failed, falling back to policy retrieval:", err);
     return null;
   }
 }
@@ -200,13 +208,29 @@ function reply(text: string, source: string, escalated = false): ChatReply {
   return { answer: text, source, escalated };
 }
 
-function escalate(): ChatReply {
+async function escalate(
+  question: string,
+  email?: string | null,
+  persistTicket = true
+): Promise<ChatReply> {
+  if (persistTicket) {
+    await createSupportTicket(question, email);
+  }
   return reply(ESCALATION, "escalation", true);
 }
 
-function orderAnswer(orderId: number, email: string | null): ChatReply {
-  const order = orders.get(orderId);
-  if (!order || !email || order.email.toLowerCase() !== email) {
+async function orderAnswer(
+  orderId: number,
+  email: string | null,
+  authenticatedEmail?: string | null
+): Promise<ChatReply> {
+  const effectiveEmail = email ?? authenticatedEmail ?? null;
+  const order = await getOrderById(orderId);
+  if (
+    !order ||
+    !effectiveEmail ||
+    order.email.toLowerCase() !== effectiveEmail.toLowerCase()
+  ) {
     return reply(ORDER_NOT_FOUND, "orders");
   }
   return reply(
@@ -217,7 +241,9 @@ function orderAnswer(orderId: number, email: string | null): ChatReply {
 
 async function llmAnswer(
   question: string,
-  llm: typeof callLlm
+  llm: LlmClientFn,
+  email?: string | null,
+  persistTicket = true
 ): Promise<ChatReply | null> {
   const policy = loadSections()
     .map((s) => `${s.title}: ${s.body}`)
@@ -227,15 +253,19 @@ async function llmAnswer(
     return null;
   }
   if (text.toUpperCase().includes("ESCALATE") || !numbersGrounded(text, policy)) {
-    return escalate();
+    return await escalate(question, email, persistTicket);
   }
   return reply(text, "llm+policy");
 }
 
-function offlineAnswer(question: string): ChatReply {
+async function offlineAnswer(
+  question: string,
+  email?: string | null,
+  persistTicket = true
+): Promise<ChatReply> {
   const hits = retrieve(question);
   if (hits.length === 0) {
-    return escalate();
+    return await escalate(question, email, persistTicket);
   }
   const lower = question.toLowerCase();
   if (SENSITIVE.some((w) => lower.includes(w))) {
@@ -244,7 +274,7 @@ function offlineAnswer(question: string): ChatReply {
       (h) => intersectCount(qTokens, tokens(h.title)) > 0
     );
     if (!hasTitleOverlap) {
-      return escalate();
+      return await escalate(question, email, persistTicket);
     }
   }
   return reply(hits[0].body, "policy");
@@ -252,16 +282,31 @@ function offlineAnswer(question: string): ChatReply {
 
 export async function answer(
   questionInput: string | undefined | null,
-  llm: typeof callLlm = callLlm
+  options?: {
+    llm?: LlmClientFn;
+    authenticatedEmail?: string | null;
+    persistTicket?: boolean;
+  }
 ): Promise<ChatReply> {
   const question = (questionInput ?? "").trim();
+  const llm = options?.llm ?? callLlm;
+  const persistTicket = options?.persistTicket ?? true;
+
   if (!question) {
     return reply("Please type a question.", "none");
   }
+
   const orderId = findOrderId(question);
   if (orderId !== null) {
-    return orderAnswer(orderId, findEmail(question));
+    return await orderAnswer(
+      orderId,
+      findEmail(question),
+      options?.authenticatedEmail
+    );
   }
-  const fromLlm = await llmAnswer(question, llm);
-  return fromLlm ?? offlineAnswer(question);
+
+  const emailInQuestion = findEmail(question) ?? options?.authenticatedEmail ?? null;
+  const fromLlm = await llmAnswer(question, llm, emailInQuestion, persistTicket);
+  if (fromLlm) return fromLlm;
+  return await offlineAnswer(question, emailInQuestion, persistTicket);
 }

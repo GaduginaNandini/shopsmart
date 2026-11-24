@@ -8,116 +8,171 @@
 <meta property="og:title" content="ShopSmart">
 <meta property="og:description" content="E-Commerce Platform with AI Support Chatbot">
 <style>
-  :root { --bg:#f6f7f9; --card:#fff; --ink:#1c2430; --muted:#5d6b7c; --accent:#0b6e4f; --line:#e1e5ea; }
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1c2430; --muted:#5d6b7c; --accent:#0b6e4f; --line:#e1e5ea; --err:#b3261e; }
   * { box-sizing: border-box; }
   body { margin:0; font:16px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
-  header { background:var(--accent); color:#fff; padding:14px 24px; font-size:20px; font-weight:600; }
-  main { max-width:1100px; margin:24px auto; padding:0 16px; display:grid; gap:20px; grid-template-columns:2fr 1fr; }
+  header { background:var(--accent); color:#fff; padding:14px 24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+  .brand { font-size:20px; font-weight:700; letter-spacing:-0.01em; }
+  nav { display:flex; gap:8px; }
+  nav button { background:rgba(255,255,255,0.16); color:#fff; border:1px solid rgba(255,255,255,0.28); padding:6px 12px; border-radius:6px; font-size:14px; cursor:pointer; }
+  nav button.active { background:#fff; color:var(--accent); font-weight:600; }
+  .auth-bar { max-width:1100px; margin:16px auto 0; padding:0 16px; }
+  .auth-card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px 16px; display:flex; flex-direction:column; gap:8px; }
+  .auth-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .auth-row input { width:auto; flex:1 1 140px; margin:0; }
+  main { max-width:1100px; margin:16px auto 32px; padding:0 16px; display:grid; gap:20px; grid-template-columns:2fr 1fr; }
+  main.single { grid-template-columns:1fr; }
   @media (max-width:800px) { main { grid-template-columns:1fr; } }
   section { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:16px; }
   h2 { margin:0 0 12px; font-size:18px; }
-  .product { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line); }
+  h3 { margin:16px 0 8px; font-size:16px; }
+  .toolbar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .toolbar input { flex:1 1 180px; margin:0; }
+  .toolbar select { padding:8px; border:1px solid var(--line); border-radius:6px; font-size:15px; background:#fff; }
+  .product { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--line); }
   .product:last-child { border-bottom:0; }
+  .tag { display:inline-block; background:#eef3f1; color:var(--accent); font-size:12px; padding:1px 6px; border-radius:4px; margin-left:6px; }
   .muted { color:var(--muted); font-size:14px; }
   button { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 14px; font-size:15px; cursor:pointer; }
-  button:hover { filter:brightness(1.1); }
+  button:hover:not(:disabled) { filter:brightness(1.1); }
+  button:disabled { opacity:0.55; cursor:not-allowed; }
   button.secondary { background:#fff; color:var(--accent); border:1px solid var(--accent); }
-  input { width:100%; padding:8px; margin:4px 0 8px; border:1px solid var(--line); border-radius:6px; font-size:15px; }
-  #cart-items li { display:flex; justify-content:space-between; margin:4px 0; }
-  #cart-items { padding:0; list-style:none; }
+  button.small { padding:4px 9px; font-size:13px; }
+  button.danger { color:var(--err); border-color:var(--err); }
+  input, select { width:100%; padding:8px; margin:4px 0 8px; border:1px solid var(--line); border-radius:6px; font-size:15px; }
+  .inline-input { width:90px; margin:0; padding:4px 6px; font-size:13px; }
+  #cart-items { padding:0; list-style:none; margin:0; }
+  .cart-row { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:6px 0; font-size:14px; }
+  .cart-actions { display:flex; gap:4px; }
   .total { font-weight:700; font-size:18px; margin:8px 0; }
-  #order-result.ok { color:var(--accent); font-weight:600; }
-  #order-result.err { color:#b3261e; font-weight:600; }
-  #chat-log { min-height:80px; max-height:220px; overflow:auto; background:#fafbfc; border:1px solid var(--line); border-radius:6px; padding:8px; margin-bottom:8px; }
-  .bot { color:var(--ink); } .you { color:var(--muted); }
+  #order-result.ok, .msg.ok { color:var(--accent); font-weight:600; font-size:14px; }
+  #order-result.err, .msg.err { color:var(--err); font-weight:600; font-size:14px; }
+  #chat-log { min-height:100px; max-height:240px; overflow:auto; background:#fafbfc; border:1px solid var(--line); border-radius:6px; padding:8px; margin-bottom:8px; }
+  .bot { color:var(--ink); margin:4px 0; }
+  .bot.escalated { color:#7b341e; }
+  .you { color:var(--muted); margin:4px 0; }
+  .order-card, .admin-row { border:1px solid var(--line); border-radius:6px; padding:10px 12px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  .order-card { display:block; }
+  .order-head { display:flex; justify-content:space-between; font-size:15px; }
+  .order-items { margin:6px 0 0 18px; font-size:14px; color:var(--muted); }
+  .admin-controls { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .admin-controls select { width:auto; margin:0; padding:4px 8px; font-size:13px; }
+  .form-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:8px; align-items:end; }
+  [hidden] { display:none !important; }
 </style>
 </head>
 <body>
-<header>ShopSmart</header>
-<main>
+<header>
+  <div class="brand">ShopSmart</div>
+  <nav aria-label="Primary">
+    <button id="tab-shop" type="button" class="active">Storefront</button>
+    <button id="tab-orders" type="button">Orders</button>
+    <button id="tab-admin" type="button" hidden>Admin</button>
+  </nav>
+</header>
+
+<div class="auth-bar">
+  <div class="auth-card">
+    <div id="auth-guest" class="auth-row">
+      <input id="auth-name" placeholder="Full name (for registration)" aria-label="Full name">
+      <input id="auth-email" type="email" placeholder="Email" aria-label="Account email">
+      <input id="auth-password" type="password" placeholder="Password (min 8 chars)" aria-label="Account password">
+      <button id="login-btn" type="button">Sign in</button>
+      <button id="register-btn" type="button" class="secondary">Register</button>
+      <button id="google-signin-btn" type="button" class="secondary">Google Sign-In</button>
+    </div>
+    <div id="auth-user" class="auth-row" hidden>
+      <strong id="user-badge"></strong>
+      <button id="claim-admin-btn" type="button" class="secondary small" hidden>Claim Admin Role</button>
+      <button id="logout-btn" type="button" class="secondary small">Sign out</button>
+    </div>
+    <div id="auth-message" role="status" class="msg"></div>
+  </div>
+</div>
+
+<main id="view-shop">
   <div>
     <section aria-labelledby="cat-h">
       <h2 id="cat-h">Catalogue</h2>
+      <div class="toolbar">
+        <input id="search-q" placeholder="Search products..." aria-label="Search products">
+        <select id="category-filter" aria-label="Filter by category">
+          <option value="All">All categories</option>
+          <option value="Stationery">Stationery</option>
+          <option value="Electronics">Electronics</option>
+          <option value="Accessories">Accessories</option>
+          <option value="General">General</option>
+        </select>
+        <button id="search-btn" type="button" class="secondary">Filter</button>
+      </div>
       <div id="products"></div>
     </section>
+
     <section aria-labelledby="chat-h" style="margin-top:20px">
       <h2 id="chat-h">Support chat</h2>
       <div id="chat-log" aria-live="polite"></div>
       <input id="chat-input" placeholder="Order status: &quot;order #1 you@example.com&quot;. Or ask about our policies" aria-label="Chat message">
-      <button id="chat-send">Send</button>
-      <p class="muted">Answers come from our written policy. Anything else goes to a human agent.</p>
+      <button id="chat-send" type="button">Send</button>
+      <p class="muted">Answers come from our written policy or order records. Anything else is escalated to a human agent.</p>
     </section>
   </div>
+
   <section aria-labelledby="cart-h">
     <h2 id="cart-h">Your cart</h2>
     <ul id="cart-items"></ul>
-    <div class="total">Total: <span id="cart-total">0.00</span></div>
-    <input id="coupon" placeholder="Coupon code" aria-label="Coupon code">
-    <button id="apply-coupon" class="secondary">Apply</button>
+    <div class="total">Total: INR <span id="cart-total">0.00</span></div>
+    <div id="active-coupon" class="muted"></div>
+    <input id="coupon" placeholder="Coupon code (SAVE10)" aria-label="Coupon code">
+    <button id="apply-coupon" type="button" class="secondary">Apply</button>
     <hr>
-    <input id="email" type="email" placeholder="Email" aria-label="Email">
+    <input id="email" type="email" placeholder="Checkout email" aria-label="Email">
     <input id="card-token" placeholder="Card token (tok_ok / tok_fail)" aria-label="Card token" value="tok_ok">
-    <button id="checkout-btn">Checkout</button>
+    <button id="checkout-btn" type="button">Checkout</button>
     <p id="order-result" role="status"></p>
   </section>
 </main>
-<script>
-let cartId = null;
-const $ = id => document.getElementById(id);
-async function api(path, method='GET', body) {
-  const r = await fetch(path, {method, headers:{'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined});
-  return {ok:r.ok, data: await r.json()};
-}
-function text(el, t) { el.textContent = t; return el; }
-async function ensureCart() { if (!cartId) cartId = (await api('/api/cart','POST')).data.cart_id; return cartId; }
-function renderCart(c) {
-  const ul = $('cart-items'); ul.replaceChildren();
-  c.items.forEach(i => {
-    const li = document.createElement('li');
-    text(li.appendChild(document.createElement('span')), i.name + ' x ' + i.quantity);
-    const b = document.createElement('button'); b.className='secondary'; b.textContent='Remove';
-    b.id = 'remove-' + i.product_id; b.onclick = async () => renderCart((await api(`/api/cart/${cartId}/items/${i.product_id}`,'DELETE')).data);
-    li.appendChild(b); ul.appendChild(li);
-  });
-  $('cart-total').textContent = c.total;
-}
-async function loadProducts() {
-  const {data} = await api('/api/products'); const box = $('products');
-  box.replaceChildren();
-  data.forEach(p => {
-    const row = document.createElement('div'); row.className='product'; row.id='product-' + p.id;
-    const info = document.createElement('div');
-    text(info.appendChild(document.createElement('strong')), p.name);
-    const m = document.createElement('div'); m.className='muted'; m.textContent = 'INR ' + p.price + ' · ' + p.stock + ' in stock'; info.appendChild(m);
-    const b = document.createElement('button'); b.id='add-' + p.id; b.textContent='Add to cart';
-    b.onclick = async () => {
-      const id = await ensureCart();
-      const r = await api(`/api/cart/${id}/items`, 'POST', {product_id:p.id, quantity:1});
-      if (r.ok) renderCart(r.data); else { $('order-result').className='err'; $('order-result').textContent = r.data.error; }
-    };
-    row.append(info, b); box.appendChild(row);
-  });
-}
-$('apply-coupon').onclick = async () => {
-  const id = await ensureCart(); const r = await api(`/api/cart/${id}/coupon`,'POST',{code:$('coupon').value});
-  if (r.ok) renderCart(r.data); else { $('order-result').className='err'; $('order-result').textContent = r.data.error; }
-};
-$('checkout-btn').onclick = async () => {
-  const id = await ensureCart();
-  const r = await api(`/api/cart/${id}/checkout`,'POST',{email:$('email').value, card_token:$('card-token').value});
-  const out = $('order-result');
-  if (r.ok) { out.className='ok'; out.textContent = `Order #${r.data.order_id} placed. Status: ${r.data.status}. Total: ${r.data.total}`; renderCart({items:[], total:'0.00'}); loadProducts(); }
-  else { out.className='err'; out.textContent = r.data.error; }
-};
-$('chat-send').onclick = async () => {
-  const q = $('chat-input').value.trim(); if (!q) return;
-  const log = $('chat-log');
-  const you = document.createElement('div'); you.className='you'; you.textContent='You: ' + q; log.appendChild(you);
-  const r = await api('/api/chat','POST',{message:q});
-  const bot = document.createElement('div'); bot.className='bot'; bot.textContent='Bot: ' + r.data.answer; log.appendChild(bot);
-  $('chat-input').value=''; log.scrollTop = log.scrollHeight;
-};
-loadProducts();
-</script>
+
+<main id="view-orders" class="single" hidden>
+  <section aria-labelledby="orders-h">
+    <h2 id="orders-h">Order history</h2>
+    <div id="orders-list"></div>
+    <hr>
+    <h3>Look up an order</h3>
+    <div class="form-grid">
+      <input id="lookup-order-id" type="number" min="1" placeholder="Order #" aria-label="Lookup Order ID">
+      <input id="lookup-order-email" type="email" placeholder="Order email" aria-label="Lookup Order Email">
+      <button id="lookup-order-btn" type="button" class="secondary">Find order</button>
+    </div>
+    <div id="lookup-order-result"></div>
+  </section>
+</main>
+
+<main id="view-admin" class="single" hidden>
+  <section aria-labelledby="admin-h">
+    <h2 id="admin-h">Admin dashboard</h2>
+    <div id="admin-message" role="status" class="msg"></div>
+
+    <h3>Add new product</h3>
+    <div class="form-grid">
+      <input id="admin-prod-name" placeholder="Product name" aria-label="New product name">
+      <input id="admin-prod-category" placeholder="Category" aria-label="New product category" value="General">
+      <input id="admin-prod-desc" placeholder="Description" aria-label="New product description">
+      <input id="admin-prod-price" type="number" step="0.01" min="0" placeholder="Price" aria-label="New product price">
+      <input id="admin-prod-stock" type="number" min="0" placeholder="Stock" aria-label="New product stock">
+      <button id="admin-create-product-btn" type="button">Add product</button>
+    </div>
+
+    <h3>Manage products</h3>
+    <div id="admin-products"></div>
+
+    <h3>Manage orders</h3>
+    <div id="admin-orders"></div>
+
+    <h3>Escalated support tickets</h3>
+    <div id="admin-tickets"></div>
+  </section>
+</main>
+
+<script type="module" src="/assets/app.js"></script>
 </body>
 </html>

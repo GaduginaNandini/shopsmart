@@ -1,0 +1,38 @@
+{
+  "title": "ShopSmart Operations Dashboard",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total HTTP Requests",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "expr": "shopsmart_requests_total", "refId": "A" }]
+    },
+    {
+      "id": 2,
+      "title": "5xx Errors",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "expr": "shopsmart_errors_total", "refId": "A" }]
+    },
+    {
+      "id": 3,
+      "title": "Successful vs Failed Orders",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "shopsmart_orders_ok_total", "legendFormat": "Orders OK", "refId": "A" },
+        { "expr": "shopsmart_orders_failed_total", "legendFormat": "Orders Failed", "refId": "B" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Average Response Time (s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [{ "expr": "shopsmart_response_seconds_avg", "refId": "A" }]
+    }
+  ]
+}
